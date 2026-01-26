@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Звіт БПЛА</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="title" id="title">Звіт по БПЛА</div>
+
+    <div class="card">
+      <label>
+        Екіпаж:
+        <div class="row">
+          <input id="crew" value="Дакар" placeholder="Дакар" maxlength="20" autocomplete="off" spellcheck="false" />
+          <input id="crewCounter" class="small" inputmode="numeric" placeholder="1..25" maxlength="2" autocomplete="off" />
+        </div>
+        <div class="error" id="counterError"></div>
+      </label>
+
+      <label>
+        Дата:
+        <input type="date" id="datePicker" />
+      </label>
+
+      <label>
+        Борт (утримуй для вводу):
+        <select id="drone"></select>
+        <datalist id="droneList"></datalist>
+      </label>
+
+      <label>
+        Характер (утримуй для вводу):
+        <select id="missionType"></select>
+        <datalist id="missionTypeList"></datalist>
+      </label>
+
+      <label>
+        Час зльоту:
+        <div class="row">
+          <input type="time" id="takeoff" />
+          <button class="btn" type="button" id="btnNowTakeoff">Зараз</button>
+        </div>
+      </label>
+
+      <label>
+        Час ураження/втрати:
+        <div class="row">
+          <input type="time" id="impact" />
+          <button class="btn" type="button" id="btnNowImpact">Зараз</button>
+        </div>
+      </label>
+
+      <label>
+        Координати:
+        <select id="mgrsPrefix"></select>
+        <div class="row">
+          <input id="easting" inputmode="numeric" maxlength="5" placeholder="71821" autocomplete="off" />
+          <input id="northing" inputmode="numeric" maxlength="5" placeholder="74569" autocomplete="off" />
+        </div>
+        <div class="error" id="coordError"></div>
+      </label>
+
+      <label>
+        Боєприпас (утримуй для вводу):
+        <select id="ammo"></select>
+        <datalist id="ammoList"></datalist>
+      </label>
+
+      <label>
+        Стрім:
+        <input id="stream" value="---" placeholder="---" maxlength="18" autocomplete="off" spellcheck="false" />
+      </label>
+
+      <label>
+        Результат (утримуй для вводу):
+        <select id="result"></select>
+        <datalist id="resultList"></datalist>
+      </label>
+
+      <button class="btn btnGreen" type="button" id="btnGenerate">Готово</button>
+
+      <label style="margin-top:14px;">
+        Готовий результат:
+        <textarea id="output" placeholder="Готовий звіт" readonly></textarea>
+      </label>
+
+      <div class="status" id="status"></div>
+    </div>
+  </div>
+
+  <script defer src="app.js"></script>
+</body>
+</html>
