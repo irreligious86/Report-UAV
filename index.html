@@ -11,86 +11,140 @@
 
 <body>
   <div class="wrap">
-    <div class="title" id="title">Звіт по БПЛА</div>
 
-    <div class="card">
-      <label>
-        Екіпаж:
-        <div class="row">
-          <input id="crew" value="Дакар" placeholder="Дакар" maxlength="20" autocomplete="off" spellcheck="false" />
-          <input id="crewCounter" class="small" inputmode="numeric" placeholder="1..25" maxlength="2" autocomplete="off" />
+    <!-- Screen 1: Report -->
+    <section id="screenReport" class="screen">
+      <div class="title screenTitle" id="title" data-screen="report">Звіт по БПЛА</div>
+
+      <div class="card">
+        <label>
+          Екіпаж:
+          <div class="row">
+            <input id="crew" value="Дакар" placeholder="Дакар" maxlength="20" autocomplete="off" spellcheck="false" />
+            <input id="crewCounter" class="small" inputmode="numeric" placeholder="1..25" maxlength="2" autocomplete="off" />
+          </div>
+          <div class="error" id="counterError"></div>
+        </label>
+
+        <label>
+          Дата:
+          <input type="date" id="datePicker" />
+        </label>
+
+        <label>
+          Борт (утримуй для вводу):
+          <select id="drone"></select>
+          <datalist id="droneList"></datalist>
+        </label>
+
+        <label>
+          Характер (утримуй для вводу):
+          <select id="missionType"></select>
+          <datalist id="missionTypeList"></datalist>
+        </label>
+
+        <label>
+          Час зльоту:
+          <div class="row">
+            <input type="time" id="takeoff" />
+            <button class="btn" type="button" id="btnNowTakeoff">Зараз</button>
+          </div>
+        </label>
+
+        <label>
+          Час ураження/втрати:
+          <div class="row">
+            <input type="time" id="impact" />
+            <button class="btn" type="button" id="btnNowImpact">Зараз</button>
+          </div>
+        </label>
+
+        <label>
+          Координати:
+          <select id="mgrsPrefix"></select>
+          <div class="row">
+            <input id="easting" inputmode="numeric" maxlength="5" placeholder="71821" autocomplete="off" />
+            <input id="northing" inputmode="numeric" maxlength="5" placeholder="74569" autocomplete="off" />
+          </div>
+          <div class="error" id="coordError"></div>
+        </label>
+
+        <label>
+          Боєприпас (утримуй для вводу):
+          <select id="ammo"></select>
+          <datalist id="ammoList"></datalist>
+        </label>
+
+        <label>
+          Стрім:
+          <input id="stream" value="---" placeholder="---" maxlength="18" autocomplete="off" spellcheck="false" />
+        </label>
+
+        <label>
+          Результат (утримуй для вводу):
+          <select id="result"></select>
+          <datalist id="resultList"></datalist>
+        </label>
+
+        <button class="btn btnGreen" type="button" id="btnGenerate">Готово</button>
+
+        <label style="margin-top:14px;">
+          Готовий результат:
+          <textarea id="output" placeholder="Готовий звіт" readonly></textarea>
+        </label>
+
+        <div class="status" id="status"></div>
+      </div>
+    </section>
+
+    <!-- Screen 2: Journal / Stats (placeholder) -->
+    <section id="screenJournal" class="screen hidden">
+      <div class="title screenTitle" data-screen="journal">Журнал / Статистика</div>
+
+      <div class="card">
+        <div class="status" style="margin:0;">
+          Тут буде історія звітів і статистика.
         </div>
-        <div class="error" id="counterError"></div>
-      </label>
+      </div>
+    </section>
 
-      <label>
-        Дата:
-        <input type="date" id="datePicker" />
-      </label>
+    <!-- Screen 3: Lists editor (placeholder for future editor UI) -->
+    <section id="screenLists" class="screen hidden">
+      <div class="title screenTitle" data-screen="lists">Редагування списків</div>
 
-      <label>
-        Борт (утримуй для вводу):
-        <select id="drone"></select>
-        <datalist id="droneList"></datalist>
-      </label>
-
-      <label>
-        Характер (утримуй для вводу):
-        <select id="missionType"></select>
-        <datalist id="missionTypeList"></datalist>
-      </label>
-
-      <label>
-        Час зльоту:
-        <div class="row">
-          <input type="time" id="takeoff" />
-          <button class="btn" type="button" id="btnNowTakeoff">Зараз</button>
+      <div class="card">
+        <div class="status" style="margin:0;">
+          Тут буде екран редагування списків (дрони/боєприпаси/характер/результати).
         </div>
-      </label>
+      </div>
+    </section>
 
-      <label>
-        Час ураження/втрати:
-        <div class="row">
-          <input type="time" id="impact" />
-          <button class="btn" type="button" id="btnNowImpact">Зараз</button>
+    <!-- Screen 4: Spare (placeholder) -->
+    <section id="screenSpare" class="screen hidden">
+      <div class="title screenTitle" data-screen="spare">Запасний екран</div>
+
+      <div class="card">
+        <div class="status" style="margin:0;">
+          Заглушка. Місце під майбутні фічі.
         </div>
-      </label>
+      </div>
+    </section>
 
-      <label>
-        Координати:
-        <select id="mgrsPrefix"></select>
-        <div class="row">
-          <input id="easting" inputmode="numeric" maxlength="5" placeholder="71821" autocomplete="off" />
-          <input id="northing" inputmode="numeric" maxlength="5" placeholder="74569" autocomplete="off" />
-        </div>
-        <div class="error" id="coordError"></div>
-      </label>
+  </div>
 
-      <label>
-        Боєприпас (утримуй для вводу):
-        <select id="ammo"></select>
-        <datalist id="ammoList"></datalist>
-      </label>
+  <!-- Screen switch modal -->
+  <div id="screenModal" class="modal hidden" aria-hidden="true">
+    <div class="modalBackdrop"></div>
 
-      <label>
-        Стрім:
-        <input id="stream" value="---" placeholder="---" maxlength="18" autocomplete="off" spellcheck="false" />
-      </label>
+    <div class="modalPanel" role="dialog" aria-modal="true">
+      <div class="modalTitle">Екрани</div>
+      <div id="screenMenuList" class="menuList"></div>
 
-      <label>
-        Результат (утримуй для вводу):
-        <select id="result"></select>
-        <datalist id="resultList"></datalist>
-      </label>
+      <div class="modalHint">
+        Довге натискання на заголовок відкриває це меню.
+      </div>
 
-      <button class="btn btnGreen" type="button" id="btnGenerate">Готово</button>
-
-      <label style="margin-top:14px;">
-        Готовий результат:
-        <textarea id="output" placeholder="Готовий звіт" readonly></textarea>
-      </label>
-
-      <div class="status" id="status"></div>
+      <button id="screenModalClose" class="btnGhost" type="button">Закрити</button>
     </div>
   </div>
 

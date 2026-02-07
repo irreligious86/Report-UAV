@@ -2,7 +2,7 @@ const CONFIG_URL = "./config.json";
 const STORAGE_KEY_COUNTER = "uav_report_counter_v13";
 const STREAM_PLACEHOLDER = "---";
 const STORAGE_KEY_REPORTS = "uav_report_history_v1";
-const REPORTS_LIMIT = 200;
+const REPORTS_LIMIT = 500;
 
 const $ = (id) => document.getElementById(id);
 
@@ -180,6 +180,120 @@ function enableLongPressToEdit(selectId, datalistId, maxLen){
   el.onmouseup = el.onmouseleave = el.ontouchend = () => clearTimeout(t);
 }
 
+/* ---------------- screens (long-press menu) ---------------- */
+
+const SCREENS = [
+  { key: "report",  id: "screenReport",  title: "Звіт по БПЛА" },
+  { key: "journal", id: "screenJournal", title: "Журнал / Статистика" },
+  { key: "lists",   id: "screenLists",   title: "Редагування списків" },
+  { key: "spare",   id: "screenSpare",   title: "Запасний екран" }
+];
+
+let activeScreenKey = "report";
+
+function setScreen(key){
+  const s = SCREENS.find(x => x.key === key) || SCREENS[0];
+  activeScreenKey = s.key;
+
+  for (const scr of SCREENS){
+    const el = $(scr.id);
+    if (!el) continue;
+    el.classList.toggle("hidden", scr.key !== s.key);
+  }
+
+  renderScreenMenu();
+}
+
+function openScreenModal(){
+  const modal = $("screenModal");
+  if (!modal) return;
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+  renderScreenMenu();
+}
+
+function closeScreenModal(){
+  const modal = $("screenModal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function renderScreenMenu(){
+  const list = $("screenMenuList");
+  if (!list) return;
+  list.innerHTML = "";
+
+  for (const s of SCREENS){
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "menuItem" + (s.key === activeScreenKey ? " active" : "");
+    btn.textContent = s.title;
+    btn.onclick = () => {
+      setScreen(s.key);
+      closeScreenModal();
+    };
+    list.appendChild(btn);
+  }
+}
+
+function bindLongPress(el, onLongPress, ms = 650){
+  if (!el) return;
+
+  let timer = null;
+  let startX = 0, startY = 0;
+
+  const clear = () => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+  };
+
+  const start = (x, y) => {
+    startX = x; startY = y;
+    clear();
+    timer = setTimeout(() => {
+      timer = null;
+      onLongPress();
+    }, ms);
+  };
+
+  const move = (x, y) => {
+    const dx = Math.abs(x - startX);
+    const dy = Math.abs(y - startY);
+    if (dx > 10 || dy > 10) clear();
+  };
+
+  el.addEventListener("touchstart", (e) => {
+    const t = e.touches[0];
+    start(t.clientX, t.clientY);
+  }, { passive: true });
+
+  el.addEventListener("touchmove", (e) => {
+    const t = e.touches[0];
+    move(t.clientX, t.clientY);
+  }, { passive: true });
+
+  el.addEventListener("touchend", clear, { passive: true });
+  el.addEventListener("touchcancel", clear, { passive: true });
+
+  el.addEventListener("mousedown", (e) => start(e.clientX, e.clientY));
+  el.addEventListener("mousemove", (e) => move(e.clientX, e.clientY));
+  el.addEventListener("mouseup", clear);
+  el.addEventListener("mouseleave", clear);
+}
+
+function initScreens(){
+  setScreen("report");
+
+  const titles = document.querySelectorAll(".screenTitle");
+  titles.forEach(t => bindLongPress(t, openScreenModal, 650));
+
+  $("screenModalClose")?.addEventListener("click", closeScreenModal);
+  $("screenModal")?.addEventListener("click", (e) => {
+    if (e.target && e.target.classList.contains("modalBackdrop")) closeScreenModal();
+  });
+}
+
 /* ---------------- generate ---------------- */
 async function generate(){
   if ($("crew").value === "") $("crew").value = "Дакар";
@@ -273,6 +387,8 @@ async function init(){
   enableLongPressToEdit("drone", "droneList", 50);
   enableLongPressToEdit("missionType", "missionTypeList", 50);
   enableLongPressToEdit("result", "resultList", 100);
+
+  initScreens();
 
   updateEmptyHighlights();
 }
