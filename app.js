@@ -265,10 +265,10 @@ async function init(){
 
   try { applyConfig(await loadConfig()); } catch(e) { setStatus("Помилка конфігу."); }
   
-  enableLongPressToEdit("ammo", "ammoList", 40);
-  enableLongPressToEdit("drone", "droneList", 40);
-  enableLongPressToEdit("missionType", "missionTypeList", 40);
-  enableLongPressToEdit("result", "resultList", 40);
+  enableLongPressToEdit("ammo", "ammoList", 50);
+  enableLongPressToEdit("drone", "droneList", 50);
+  enableLongPressToEdit("missionType", "missionTypeList", 50);
+  enableLongPressToEdit("result", "resultList", 100);
 
   updateEmptyHighlights();
 }
