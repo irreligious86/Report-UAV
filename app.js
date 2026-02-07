@@ -203,6 +203,10 @@ async function generate(){
     $("crewCounter").value = String(next);
     saveCounterMaybe(next);
   }
+
+  // --- НОВОЕ: после "Готово" ставим дату формы равной системной дате ---
+  $("datePicker").value = todayISO();
+
   updateEmptyHighlights();
 }
 
