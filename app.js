@@ -6,6 +6,9 @@ const REPORTS_LIMIT = 200;
 
 const $ = (id) => document.getElementById(id);
 
+// --- coords UX state ---
+let eastingEditStarted = false;
+
 /* ---------------- utils ---------------- */
 function pad2(n){ return String(n).padStart(2, "0"); }
 function nowTime(){
@@ -67,6 +70,7 @@ function sanitizeCounterField(){
 /* ---------------- coords ---------------- */
 function normalize5(el){ el.value = el.value.replace(/\D/g, "").slice(0,5); }
 function onlyDigits5(s){ return /^\d{5}$/.test(s); }
+
 function buildCoordsOrError(){
   const e = ($("easting")?.value || "").trim();
   const n = ($("northing")?.value || "").trim();
@@ -82,13 +86,11 @@ function buildCoordsOrError(){
 
 /* ---------------- clipboard & Android Bridge ---------------- */
 async function copyText(text){
-  // Нативный мост для Android App
   if (window.AndroidBridge) {
     window.AndroidBridge.copyToClipboard(text);
     if (window.AndroidBridge.shareText) window.AndroidBridge.shareText(text);
     return true;
   }
-  // Обычный браузер
   try {
     await navigator.clipboard.writeText(text);
     return true;
@@ -209,19 +211,65 @@ async function init(){
   $("datePicker").value = todayISO();
   $("takeoff").value = nowTime();
   loadCounter();
+
   $("btnNowTakeoff").onclick = () => { $("takeoff").value = nowTime(); updateEmptyHighlights(); };
   $("btnNowImpact").onclick = () => { $("impact").value = nowTime(); updateEmptyHighlights(); };
   $("btnGenerate").onclick = generate;
+
   $("crewCounter").oninput = sanitizeCounterField;
-  $("easting").oninput = () => { normalize5($("easting")); if($("easting").value.length===5) $("northing").focus(); updateEmptyHighlights(); };
-  $("northing").oninput = () => { normalize5($("northing")); updateEmptyHighlights(); };
-  
+
+  // --- координаты ---
+  $("easting").onfocus = () => { eastingEditStarted = false; };
+
+  $("easting").oninput = () => {
+    const eEl = $("easting");
+    const nEl = $("northing");
+
+    const before = eEl.value;
+    normalize5(eEl);
+    const now = eEl.value;
+
+    // ❗ НОВОЕ ПРАВИЛО:
+    // если easting стал пустым — northing чистим сразу, без условий
+    if (now === "") {
+      if (nEl) nEl.value = "";
+      eastingEditStarted = false;
+      updateEmptyHighlights();
+      return;
+    }
+
+    // начало нового ввода
+    if (!eastingEditStarted && now.length > 0) {
+      eastingEditStarted = true;
+      if (nEl && nEl.value.trim() !== "") {
+        nEl.value = "";
+      }
+    }
+
+    // автопереход
+    if (now.length === 5 && nEl) nEl.focus();
+
+    updateEmptyHighlights();
+  };
+
+  $("northing").oninput = () => {
+    const nEl = $("northing");
+    normalize5(nEl);
+
+    if ((nEl.value || "").length === 5) {
+      nEl.blur();
+    }
+
+    updateEmptyHighlights();
+  };
+
   try { applyConfig(await loadConfig()); } catch(e) { setStatus("Помилка конфігу."); }
   
-  enableLongPressToEdit("ammo", "ammoList", 40);
-  enableLongPressToEdit("drone", "droneList", 40);
-  enableLongPressToEdit("missionType", "missionTypeList", 40);
-  enableLongPressToEdit("result", "resultList", 40);
+  enableLongPressToEdit("ammo", "ammoList", 50);
+  enableLongPressToEdit("drone", "droneList", 50);
+  enableLongPressToEdit("missionType", "missionTypeList", 50);
+  enableLongPressToEdit("result", "resultList", 100);
+
   updateEmptyHighlights();
 }
 init();
