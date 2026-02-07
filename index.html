@@ -90,6 +90,34 @@
         <textarea id="output" placeholder="Готовий звіт" readonly></textarea>
       </label>
 
+      <!-- ✅ SIMPLE LIST EDITOR (user-friendly) -->
+      <div class="miniPanel" id="listEditor">
+        <div class="miniTitle">Додати пункт у списки</div>
+
+        <label style="margin-top:10px;">
+          Куди додати:
+          <select id="listTarget">
+            <option value="ammo">Боєприпас</option>
+            <option value="missionTypes">Характер</option>
+            <option value="drones">Борт</option>
+            <option value="results">Результат</option>
+            <option value="mgrsPrefixes">MGRS префікс</option>
+          </select>
+        </label>
+
+        <label>
+          Новий пункт:
+          <input id="listNewValue" placeholder="Введи назву…" maxlength="60" autocomplete="off" spellcheck="false" />
+        </label>
+
+        <div class="row" style="margin-top:10px;">
+          <button class="btn" type="button" id="btnListAdd">Додати</button>
+          <button class="btn" type="button" id="btnListReset">Скинути мої зміни</button>
+        </div>
+
+        <div class="status" id="listStatus"></div>
+      </div>
+
       <div class="status" id="status"></div>
     </div>
   </div>

@@ -134,3 +134,22 @@ button:active { transform: translateY(2px) scale(0.98); }
   color: var(--muted);
   margin-top: 10px;
 }
+
+/* ---------------- Panel: Local list management ---------------- */
+.miniPanel{
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(85,243,255,.18);
+  background: linear-gradient(180deg, rgba(10,15,16,.82), rgba(0,0,0,.28));
+  box-shadow: 0 0 0 1px rgba(85,243,255,.10), 0 10px 26px rgba(0,0,0,.6);
+}
+
+.miniTitle{
+  color: var(--label);
+  font-weight: 900;
+  font-size: 16px;
+  letter-spacing: .2px;
+  text-align: center;
+  margin-bottom: 4px;
+}

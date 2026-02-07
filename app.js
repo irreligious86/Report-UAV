@@ -4,10 +4,18 @@ const STREAM_PLACEHOLDER = "---";
 const STORAGE_KEY_REPORTS = "uav_report_history_v1";
 const REPORTS_LIMIT = 200;
 
+// ✅ Local config override for user-added items
+// Храним только доп. элементы, а не весь config.json, чтобы не превратить жизнь в ад.
+const STORAGE_KEY_CONFIG_OVERRIDE = "uav_config_override_v1";
+
 const $ = (id) => document.getElementById(id);
 
 // --- coords UX state ---
 let eastingEditStarted = false;
+
+// --- config state ---
+let baseConfig = null;
+let effectiveConfig = null;
 
 /* ---------------- utils ---------------- */
 function pad2(n){ return String(n).padStart(2, "0"); }
@@ -25,10 +33,17 @@ function setStatus(msg){
   const el = $("status");
   if (el) el.textContent = msg || "";
 }
+function setListStatus(msg){
+  const el = $("listStatus");
+  if (el) el.textContent = msg || "";
+}
 function autosizeTextarea(el){
   if (!el) return;
   el.style.height = "auto";
   el.style.height = (el.scrollHeight + 2) + "px";
+}
+function normText(s){
+  return String(s ?? "").trim().replace(/\s+/g, " ");
 }
 
 /* ---------------- counter ---------------- */
@@ -122,6 +137,7 @@ async function loadConfig(){
   if (!res.ok) throw new Error(`config.json error: ${res.status}`);
   return await res.json();
 }
+
 function applyConfig(cfg){
   const lists = cfg?.lists || {};
   fillSelect($("drone"), lists.drones || []);
@@ -129,7 +145,7 @@ function applyConfig(cfg){
   fillSelect($("ammo"), lists.ammo || []);
   fillSelect($("result"), lists.results || []);
   fillSelect($("mgrsPrefix"), lists.mgrsPrefixes || []);
-  
+
   fillDatalist($("droneList"), lists.drones || []);
   fillDatalist($("missionTypeList"), lists.missionTypes || []);
   fillDatalist($("ammoList"), lists.ammo || []);
@@ -138,6 +154,7 @@ function applyConfig(cfg){
   if (cfg?.defaults?.mgrsPrefix) $("mgrsPrefix").value = cfg.defaults.mgrsPrefix;
   if (cfg?.defaults?.missionType) $("missionType").value = cfg.defaults.missionType;
   if (cfg?.defaults?.result) $("result").value = cfg.defaults.result;
+
   updateEmptyHighlights();
 }
 
@@ -149,6 +166,137 @@ function updateEmptyHighlights(){
     if ((el.value ?? "").trim() === "") el.classList.add("is-empty");
     else el.classList.remove("is-empty");
   }
+}
+
+/* ---------------- local override: add items ---------------- */
+/*
+  override format:
+  {
+    "lists": {
+      "ammo": ["...", "..."],
+      "missionTypes": ["..."],
+      ...
+    }
+  }
+*/
+function loadOverride(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_CONFIG_OVERRIDE);
+    if (!raw) return { lists: {} };
+    const obj = JSON.parse(raw);
+    if (!obj || typeof obj !== "object") return { lists: {} };
+    if (!obj.lists || typeof obj.lists !== "object") obj.lists = {};
+    return obj;
+  } catch {
+    return { lists: {} };
+  }
+}
+function saveOverride(ov){
+  localStorage.setItem(STORAGE_KEY_CONFIG_OVERRIDE, JSON.stringify(ov));
+}
+function clearOverride(){
+  localStorage.removeItem(STORAGE_KEY_CONFIG_OVERRIDE);
+}
+
+function deepClone(obj){
+  try { if (typeof structuredClone === "function") return structuredClone(obj); } catch {}
+  return JSON.parse(JSON.stringify(obj ?? {}));
+}
+
+function mergeListsUnique(baseArr, extraArr){
+  const out = [];
+  const seen = new Set();
+  for (const v of (baseArr || [])){
+    const s = normText(v);
+    if (!s) continue;
+    if (!seen.has(s)) { seen.add(s); out.push(v); }
+  }
+  for (const v of (extraArr || [])){
+    const s = normText(v);
+    if (!s) continue;
+    if (!seen.has(s)) { seen.add(s); out.push(s); }
+  }
+  return out;
+}
+
+function buildEffectiveConfig(baseCfg, override){
+  const merged = deepClone(baseCfg);
+  merged.lists = merged.lists || {};
+  const ovLists = (override && override.lists) ? override.lists : {};
+
+  // поддерживаем только те списки, которые реально есть в интерфейсе
+  const keys = ["ammo","missionTypes","drones","results","mgrsPrefixes"];
+  for (const k of keys){
+    merged.lists[k] = mergeListsUnique(merged.lists[k] || [], Array.isArray(ovLists[k]) ? ovLists[k] : []);
+  }
+  return merged;
+}
+
+async function reloadAndApplyConfig(){
+  if (!baseConfig) baseConfig = await loadConfig();
+  const ov = loadOverride();
+  effectiveConfig = buildEffectiveConfig(baseConfig, ov);
+  applyConfig(effectiveConfig);
+}
+
+function listKeyToLabel(key){
+  switch (key){
+    case "ammo": return "Боєприпас";
+    case "missionTypes": return "Характер";
+    case "drones": return "Борт";
+    case "results": return "Результат";
+    case "mgrsPrefixes": return "MGRS префікс";
+    default: return key;
+  }
+}
+
+async function addItemToList(listKey, value){
+  const v = normText(value);
+  if (!v) {
+    setListStatus("Порожнє значення. Таке навіть компілятор не любить.");
+    return;
+  }
+
+  if (!baseConfig) baseConfig = await loadConfig();
+  const ov = loadOverride();
+  if (!ov.lists) ov.lists = {};
+  if (!Array.isArray(ov.lists[listKey])) ov.lists[listKey] = [];
+
+  // проверка дубликатов относительно effective config (база + оверрайд)
+  const currentArr = (effectiveConfig?.lists?.[listKey]) || (baseConfig?.lists?.[listKey]) || [];
+  const exists = currentArr.some(x => normText(x) === v);
+  if (exists) {
+    setListStatus(`Вже є в списку: "${v}". Ніякої драми, просто дубль.`);
+    return;
+  }
+
+  ov.lists[listKey].push(v);
+  saveOverride(ov);
+
+  await reloadAndApplyConfig();
+
+  // UX: выбираем добавленный элемент в соответствующем селекте
+  const mapSelectId = {
+    ammo: "ammo",
+    missionTypes: "missionType",
+    drones: "drone",
+    results: "result",
+    mgrsPrefixes: "mgrsPrefix"
+  };
+  const selId = mapSelectId[listKey];
+  const sel = selId ? $(selId) : null;
+  if (sel) sel.value = v;
+
+  setListStatus(`Додано в "${listKeyToLabel(listKey)}": "${v}".`);
+}
+
+async function resetUserChanges(){
+  clearOverride();
+  // перечитать базу заново, чтобы гарантированно убрать всё
+  baseConfig = await loadConfig();
+  effectiveConfig = buildEffectiveConfig(baseConfig, { lists: {} });
+  applyConfig(effectiveConfig);
+  setListStatus("Локальні доповнення скинуто. Все знову як у “ванілі”.");
 }
 
 /* ---------------- history ---------------- */
@@ -185,10 +333,10 @@ async function generate(){
   if ($("crew").value === "") $("crew").value = "Дакар";
   const coords = buildCoordsOrError();
   if (!coords) return;
-  
+
   const parsedCounter = parseCounterRaw($("crewCounter").value);
   const crewLine = parsedCounter.empty ? $("crew").value : `${$("crew").value} (${parsedCounter.value})`;
-  
+
   const text = `${crewLine}\n${isoToDDMMYYYY($("datePicker").value)}\nБорт: ${$("drone").value}\nХарактер: ${$("missionType").value}\nЧас зльоту: ${$("takeoff").value}\nЧас ураження/втрати: ${$("impact").value}\nКоординати: ${coords}\nБоєприпас: ${$("ammo").value}\nСтрім: ${$("stream").value || STREAM_PLACEHOLDER}\nРезультат: ${$("result").value}`;
 
   $("output").value = text;
@@ -225,12 +373,9 @@ async function init(){
     const eEl = $("easting");
     const nEl = $("northing");
 
-    const before = eEl.value;
     normalize5(eEl);
     const now = eEl.value;
 
-    // ❗ НОВОЕ ПРАВИЛО:
-    // если easting стал пустым — northing чистим сразу, без условий
     if (now === "") {
       if (nEl) nEl.value = "";
       eastingEditStarted = false;
@@ -238,37 +383,62 @@ async function init(){
       return;
     }
 
-    // начало нового ввода
     if (!eastingEditStarted && now.length > 0) {
       eastingEditStarted = true;
-      if (nEl && nEl.value.trim() !== "") {
-        nEl.value = "";
-      }
+      if (nEl && nEl.value.trim() !== "") nEl.value = "";
     }
 
-    // автопереход
     if (now.length === 5 && nEl) nEl.focus();
-
     updateEmptyHighlights();
   };
 
   $("northing").oninput = () => {
     const nEl = $("northing");
     normalize5(nEl);
-
-    if ((nEl.value || "").length === 5) {
-      nEl.blur();
-    }
-
+    if ((nEl.value || "").length === 5) nEl.blur();
     updateEmptyHighlights();
   };
 
-  try { applyConfig(await loadConfig()); } catch(e) { setStatus("Помилка конфігу."); }
-  
+  // ✅ Load config + apply override
+  try {
+    baseConfig = await loadConfig();
+    await reloadAndApplyConfig();
+  } catch(e) {
+    setStatus("Помилка конфігу.");
+  }
+
   enableLongPressToEdit("ammo", "ammoList", 40);
   enableLongPressToEdit("drone", "droneList", 40);
   enableLongPressToEdit("missionType", "missionTypeList", 40);
   enableLongPressToEdit("result", "resultList", 40);
+
+  // ✅ Bind list editor controls (if present)
+  const btnAdd = $("btnListAdd");
+  const btnReset = $("btnListReset");
+  const target = $("listTarget");
+  const input = $("listNewValue");
+
+  if (btnAdd && target && input) {
+    btnAdd.onclick = async () => {
+      setListStatus("");
+      await addItemToList(target.value, input.value);
+      input.value = "";
+      input.focus();
+    };
+    input.addEventListener("keydown", async (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        btnAdd.click();
+      }
+    });
+  }
+
+  if (btnReset) {
+    btnReset.onclick = async () => {
+      setListStatus("");
+      await resetUserChanges();
+    };
+  }
 
   updateEmptyHighlights();
 }
