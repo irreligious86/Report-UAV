@@ -108,14 +108,42 @@
       </div>
     </section>
 
-    <!-- Screen 3: Lists editor (placeholder for future editor UI) -->
+    <!-- Screen 3: Lists editor -->
     <section id="screenLists" class="screen hidden">
       <div class="title screenTitle" data-screen="lists">Редагування списків</div>
 
       <div class="card">
-        <div class="status" style="margin:0;">
-          Тут буде екран редагування списків (дрони/боєприпаси/характер/результати).
+
+        <div class="status" style="margin:0 0 10px;">
+          1 елемент = 1 рядок. Порожні рядки ігноруються.
         </div>
+
+        <label>
+          Дрони (drones):
+          <textarea id="editDrones" placeholder="По одному в рядок"></textarea>
+        </label>
+
+        <label>
+          Характер (missionTypes):
+          <textarea id="editMissionTypes" placeholder="По одному в рядок"></textarea>
+        </label>
+
+        <label>
+          Боєприпаси (ammo):
+          <textarea id="editAmmo" placeholder="По одному в рядок"></textarea>
+        </label>
+
+        <label>
+          Результати (results):
+          <textarea id="editResults" placeholder="По одному в рядок"></textarea>
+        </label>
+
+        <div class="row" style="margin-top:12px;">
+          <button class="btn" type="button" id="btnListsReset">Скинути</button>
+          <button class="btn btnGreen" type="button" id="btnListsSave">Зберегти</button>
+        </div>
+
+        <div class="status" id="listsStatus"></div>
       </div>
     </section>
 

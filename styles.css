@@ -94,6 +94,25 @@ textarea {
   overflow: hidden;
 }
 
+/* --- НОВОЕ: textarea редактора списков (экран 3) --- */
+#editDrones,
+#editMissionTypes,
+#editAmmo,
+#editResults{
+  min-height: 180px;
+  overflow: auto;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+/* --- НОВОЕ: статус редактора списков --- */
+#listsStatus{
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 10px;
+}
+
 .row { display: flex; gap: 10px; align-items: stretch; }
 .small { flex: 0 0 140px; }
 

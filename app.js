@@ -4,10 +4,16 @@ const STREAM_PLACEHOLDER = "---";
 const STORAGE_KEY_REPORTS = "uav_report_history_v1";
 const REPORTS_LIMIT = 500;
 
+// --- НОВОЕ: overrides для списков (экран 3) ---
+const STORAGE_KEY_LISTS_OVERRIDE = "uav_lists_override_v1";
+
 const $ = (id) => document.getElementById(id);
 
 // --- coords UX state ---
 let eastingEditStarted = false;
+
+// --- НОВОЕ: базовый конфиг из config.json (без overrides) ---
+let baseConfig = null;
 
 /* ---------------- utils ---------------- */
 function pad2(n){ return String(n).padStart(2, "0"); }
@@ -178,6 +184,118 @@ function enableLongPressToEdit(selectId, datalistId, maxLen){
   let t;
   el.onmousedown = el.ontouchstart = () => { t = setTimeout(() => enterEditMode(selectId, datalistId, maxLen), 600); };
   el.onmouseup = el.onmouseleave = el.ontouchend = () => clearTimeout(t);
+}
+
+/* ---------------- lists editor (screen 3) ---------------- */
+
+function listsStatus(msg){
+  const el = $("listsStatus");
+  if (el) el.textContent = msg || "";
+}
+
+function parseLinesToList(text){
+  const lines = String(text || "")
+    .split("\n")
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  // убираем дубликаты, сохраняя порядок
+  const seen = new Set();
+  const out = [];
+  for (const x of lines){
+    const k = x.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(x);
+  }
+  return out;
+}
+
+function getListsOverride(){
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY_LISTS_OVERRIDE)) || null;
+  } catch {
+    return null;
+  }
+}
+
+function saveListsOverride(overrideObj){
+  if (!overrideObj) {
+    localStorage.removeItem(STORAGE_KEY_LISTS_OVERRIDE);
+    return;
+  }
+  localStorage.setItem(STORAGE_KEY_LISTS_OVERRIDE, JSON.stringify(overrideObj));
+}
+
+function mergeConfigWithOverride(cfg, overrideObj){
+  if (!overrideObj?.lists) return cfg;
+
+  const baseLists = cfg?.lists || {};
+  const o = overrideObj.lists || {};
+
+  // собираем новый объект, не мутируя cfg
+  return {
+    ...cfg,
+    lists: {
+      ...baseLists,
+      ...(o.drones ? { drones: o.drones } : {}),
+      ...(o.missionTypes ? { missionTypes: o.missionTypes } : {}),
+      ...(o.ammo ? { ammo: o.ammo } : {}),
+      ...(o.results ? { results: o.results } : {}),
+    }
+  };
+}
+
+function fillListsEditorFromConfig(cfg){
+  const lists = cfg?.lists || {};
+  const t1 = $("editDrones");
+  const t2 = $("editMissionTypes");
+  const t3 = $("editAmmo");
+  const t4 = $("editResults");
+
+  if (t1) { t1.value = (lists.drones || []).join("\n"); autosizeTextarea(t1); }
+  if (t2) { t2.value = (lists.missionTypes || []).join("\n"); autosizeTextarea(t2); }
+  if (t3) { t3.value = (lists.ammo || []).join("\n"); autosizeTextarea(t3); }
+  if (t4) { t4.value = (lists.results || []).join("\n"); autosizeTextarea(t4); }
+}
+
+function initListsEditor(){
+  // autosize по мере ввода (минимально, без лишней магии)
+  ["editDrones","editMissionTypes","editAmmo","editResults"].forEach(id => {
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener("input", () => autosizeTextarea(el));
+  });
+
+  $("btnListsSave")?.addEventListener("click", () => {
+    if (!baseConfig) return;
+
+    const drones = parseLinesToList($("editDrones")?.value);
+    const missionTypes = parseLinesToList($("editMissionTypes")?.value);
+    const ammo = parseLinesToList($("editAmmo")?.value);
+    const results = parseLinesToList($("editResults")?.value);
+
+    const overrideObj = {
+      lists: { drones, missionTypes, ammo, results }
+    };
+
+    saveListsOverride(overrideObj);
+
+    const merged = mergeConfigWithOverride(baseConfig, overrideObj);
+    applyConfig(merged);
+
+    listsStatus("Збережено. Списки оновлено в формі.");
+  });
+
+  $("btnListsReset")?.addEventListener("click", () => {
+    if (!baseConfig) return;
+
+    saveListsOverride(null);
+    applyConfig(baseConfig);
+    fillListsEditorFromConfig(baseConfig);
+
+    listsStatus("Скинуто до базового config.json.");
+  });
 }
 
 /* ---------------- screens (long-press menu) ---------------- */
@@ -381,7 +499,15 @@ async function init(){
     updateEmptyHighlights();
   };
 
-  try { applyConfig(await loadConfig()); } catch(e) { setStatus("Помилка конфігу."); }
+  try {
+    baseConfig = await loadConfig();
+    const merged = mergeConfigWithOverride(baseConfig, getListsOverride());
+    applyConfig(merged);
+    fillListsEditorFromConfig(merged);
+    initListsEditor();
+  } catch(e) {
+    setStatus("Помилка конфігу.");
+  }
   
   enableLongPressToEdit("ammo", "ammoList", 50);
   enableLongPressToEdit("drone", "droneList", 50);
