@@ -1,3 +1,10 @@
+/*
+  Report UAV — application styles.
+  Звіт БПЛА — стилі додатку.
+
+  Dark theme, CSS variables for colors/shadows, mobile-friendly layout,
+  empty-field highlight (.is-empty), safe-area insets support.
+*/
 :root {
   --bg: #050607;
   --panel1: rgba(10,15,16,.92);
@@ -15,6 +22,7 @@
   --radius: 16px;
 }
 
+/* --- Base / База --- */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
 html, body { 
@@ -34,6 +42,7 @@ body {
   user-select: none; /* Запрет случайного выделения интерфейса */
 }
 
+/* --- Layout / Макет --- */
 .wrap {
   min-height: 100%;
   padding: calc(14px + env(safe-area-inset-top)) 14px calc(14px + env(safe-area-inset-bottom));
@@ -59,6 +68,7 @@ body {
   box-shadow: var(--shadow-card);
 }
 
+/* --- Form elements / Елементи форми --- */
 label {
   display: block;
   margin-top: 12px;
@@ -94,6 +104,7 @@ textarea {
   overflow: hidden;
 }
 
+/* --- Rows, buttons, states / Рядки, кнопки, стани --- */
 .row { display: flex; gap: 10px; align-items: stretch; }
 .small { flex: 0 0 140px; }
 
