@@ -23,3 +23,11 @@ export const STORAGE_KEY_REPORTS = "uav_report_history_v1";
 /** Maximum number of reports to keep in history; older entries are dropped. */
 /** Максимальное количество отчётов в истории; старые записи удаляются. */
 export const REPORTS_LIMIT = 200;
+
+/** localStorage key for user overrides of config.json lists/defaults (settings screen). */
+/** Ключ localStorage для пользовательских переопределений config.json (экран настроек). */
+export const STORAGE_KEY_CONFIG_OVERRIDES = "uav_report_config_overrides_v1";
+
+/** localStorage key for known stream values collected from reports. */
+/** Ключ localStorage для списка значений поля «Стрім», собранных из отчётов. */
+export const STORAGE_KEY_STREAMS = "uav_report_streams_v1";

@@ -5,7 +5,7 @@
  */
 
 import { $ } from "./utils.js";
-import { CONFIG_URL } from "./constants.js";
+import { CONFIG_URL, STORAGE_KEY_CONFIG_OVERRIDES } from "./constants.js";
 
 /**
  * Fills a <select> with options from an array of strings.
@@ -74,6 +74,59 @@ export function applyConfig(cfg) {
   if (cfg?.defaults?.missionType) $("missionType").value = cfg.defaults.missionType;
   if (cfg?.defaults?.result) $("result").value = cfg.defaults.result;
   updateEmptyHighlights();
+}
+
+/**
+ * Loads user overrides for config lists/defaults from localStorage.
+ * Загружает пользовательские переопределения списков/значений по умолчанию из localStorage.
+ * @returns {{lists?: object, defaults?: object}} Overrides object or {}.
+ */
+export function loadConfigOverrides() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY_CONFIG_OVERRIDES)) || {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Saves user overrides for config lists/defaults to localStorage.
+ * Сохраняет пользовательские переопределения списков/значений по умолчанию в localStorage.
+ * @param {{lists?: object, defaults?: object}} overrides - Overrides object. Объект переопределений.
+ */
+export function saveConfigOverrides(overrides) {
+  if (!overrides || typeof overrides !== "object") {
+    localStorage.removeItem(STORAGE_KEY_CONFIG_OVERRIDES);
+    return;
+  }
+  localStorage.setItem(STORAGE_KEY_CONFIG_OVERRIDES, JSON.stringify(overrides));
+}
+
+/**
+ * Applies base config together with user overrides: merged lists/defaults.
+ * Применяет базовый config.json вместе с пользовательскими переопределениями: объединённые lists/defaults.
+ * @param {object} cfg - Base config from config.json.
+ * @param {{lists?: object, defaults?: object}} overrides - Overrides object from localStorage.
+ */
+export function applyConfigWithOverrides(cfg, overrides) {
+  const baseCfg = cfg || {};
+  const ov = overrides || {};
+
+  const mergedLists = {
+    ...(baseCfg.lists || {}),
+    ...(ov.lists || {}),
+  };
+
+  const mergedDefaults = {
+    ...(baseCfg.defaults || {}),
+    ...(ov.defaults || {}),
+  };
+
+  applyConfig({
+    ...baseCfg,
+    lists: mergedLists,
+    defaults: mergedDefaults,
+  });
 }
 
 /** IDs of form fields that get the "is-empty" class when their value is blank. */

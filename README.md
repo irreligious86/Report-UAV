@@ -18,6 +18,7 @@
 - **Copy to clipboard** — Generated report is copied automatically; on Android WebView, optional share via `AndroidBridge`.
 - **Crew counter** — Optional numeric counter (1–25) per crew, saved between sessions; auto-increments after each report.
 - **Empty-field highlight** — Required fields are visually highlighted when empty (red border) to reduce mistakes.
+- **Multi-screen navigation** — Long-press on the header opens a screen menu (main form, journal & stats, settings, help).
 
 ---
 
@@ -29,6 +30,7 @@
 - **Копіювання** — Згенерований звіт копіюється в буфер; у Android WebView можливий обмін через `AndroidBridge`.
 - **Лічильник екіпажу** — Додатковий числовий лічильник (1–25) для екіпажу, зберігається між сесіями; автоматично збільшується після кожного звіту.
 - **Підсвітка порожніх полів** — Обов’язкові поля підсвічуються (червона рамка), якщо порожні.
+- **Навігація між екранами** — Довге натискання на заголовок відкриває меню екранів (форма, журнал/статистика, налаштування, довідка).
 
 ---
 
@@ -55,19 +57,34 @@ Report-UAV/
 ├── manifest.json       # PWA manifest (name, icons, display, theme)
 ├── sw.js               # Service Worker for offline caching
 ├── js/
-│   ├── app.js          # Entry point: init, event bindings, config load
+│   ├── app.js          # Entry point: initialize screens and navigation
 │   ├── constants.js    # CONFIG_URL, storage keys, REPORTS_LIMIT, STREAM_PLACEHOLDER
 │   ├── utils.js        # DOM helper $(), date/time (nowTime, todayISO, isoToDDMMYYYY), setStatus, autosizeTextarea
 │   ├── counter.js      # Crew counter: parse, save/load, sanitize
 │   ├── coords.js       # Easting/northing normalize & buildCoordsOrError
 │   ├── clipboard.js   # copyText (Web API or AndroidBridge)
-│   ├── config.js       # loadConfig, applyConfig, fillSelect/fillDatalist, updateEmptyHighlights
+│   ├── config.js       # loadConfig, applyConfig(+overrides), fillSelect/fillDatalist, updateEmptyHighlights
 │   ├── history.js      # loadReports, addReport (localStorage, size-limited)
 │   ├── longPressEdit.js # Long-press select → input+datalist for free text
-│   └── generate.js     # Build report text, copy, save to history, increment counter, set date
+│   ├── generate.js     # Build report text, copy, save to history, increment counter, set date, track stream values
+│   ├── streams.js      # loadStreams/saveStreams/addStreamValue (list of used stream values)
+│   ├── navigation.js   # Screen switching and long-press menu on the title
+│   └── screens/
+│       ├── mainForm.js # Main report form: bindings, config load, long-press edit
+│       ├── journal.js  # Reports journal + statistics for selected period
+│       └── settings.js # Local editor for lists (drones, ammo, mission types, results, MGRS prefixes, streams)
 ├── README.md
 └── LICENSE              # MIT
 ```
+
+---
+
+## Screens | Екрани
+
+- **Main form / Головна форма** — первинне введення даних звіту та генерація тексту (екран за замовчуванням).
+- **Journal & Stats / Журнал та статистика** — перегляд звітів з localStorage за обраний період, підрахунок кількості вильотів, бортів, боєприпасів, типів місій та результатів.
+- **Settings / Налаштування списків** — редагування локальних списків (дрони, типи місій, боєприпаси, результати, префікси MGRS, стріми) збережених у localStorage, без зміни `config.json` на диску.
+- **Help / Довідка** — коротке керівництво користувача та місце для контактів розробника.
 
 ---
 

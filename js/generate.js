@@ -11,6 +11,7 @@ import { buildCoordsOrError } from "./coords.js";
 import { addReport } from "./history.js";
 import { copyText } from "./clipboard.js";
 import { updateEmptyHighlights } from "./config.js";
+import { addStreamValue } from "./streams.js";
 
 /**
  * Generates the report text from form fields, writes to #output, copies to clipboard, saves to history.
@@ -32,6 +33,9 @@ export async function generate() {
   $("output").value = text;
   autosizeTextarea($("output"));
   addReport({ ts: new Date().toISOString(), text });
+
+  // Remember stream value for settings screen list (auto-populate if new).
+  addStreamValue($("stream").value || "");
 
   const ok = await copyText(text);
   setStatus(ok ? "Звіт скопійовано." : "Помилка копіювання.");

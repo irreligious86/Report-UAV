@@ -21,84 +21,210 @@
   <div class="wrap">
     <div class="title" id="title">Звіт по БПЛА</div>
 
-    <div class="card">
-      <label>
-        Екіпаж:
-        <div class="row">
-          <input id="crew" value="Дакар" placeholder="Дакар" maxlength="20" autocomplete="off" spellcheck="false" />
-          <input id="crewCounter" class="small" inputmode="numeric" placeholder="1..25" maxlength="2" autocomplete="off" />
+    <!-- Screen 1: main report form / Головний екран: форма звіту -->
+    <div class="screen" id="screen-main">
+      <div class="card">
+        <label>
+          Екіпаж:
+          <div class="row">
+            <input id="crew" value="Дакар" placeholder="Дакар" maxlength="20" autocomplete="off" spellcheck="false" />
+            <input id="crewCounter" class="small" inputmode="numeric" placeholder="1..25" maxlength="2" autocomplete="off" />
+          </div>
+          <div class="error" id="counterError"></div>
+        </label>
+
+        <label>
+          Дата:
+          <input type="date" id="datePicker" />
+        </label>
+
+        <label>
+          Борт (утримуй для вводу):
+          <select id="drone"></select>
+          <datalist id="droneList"></datalist>
+        </label>
+
+        <label>
+          Характер (утримуй для вводу):
+          <select id="missionType"></select>
+          <datalist id="missionTypeList"></datalist>
+        </label>
+
+        <label>
+          Час зльоту:
+          <div class="row">
+            <input type="time" id="takeoff" />
+            <button class="btn" type="button" id="btnNowTakeoff">Зараз</button>
+          </div>
+        </label>
+
+        <label>
+          Час ураження/втрати:
+          <div class="row">
+            <input type="time" id="impact" />
+            <button class="btn" type="button" id="btnNowImpact">Зараз</button>
+          </div>
+        </label>
+
+        <label>
+          Координати:
+          <select id="mgrsPrefix"></select>
+          <div class="row">
+            <input id="easting" inputmode="numeric" maxlength="5" placeholder="71821" autocomplete="off" />
+            <input id="northing" inputmode="numeric" maxlength="5" placeholder="74569" autocomplete="off" />
+          </div>
+          <div class="error" id="coordError"></div>
+        </label>
+
+        <label>
+          Боєприпас (утримуй для вводу):
+          <select id="ammo"></select>
+          <datalist id="ammoList"></datalist>
+        </label>
+
+        <label>
+          Стрім:
+          <input id="stream" value="---" placeholder="---" maxlength="18" autocomplete="off" spellcheck="false" />
+        </label>
+
+        <label>
+          Результат (утримуй для вводу):
+          <select id="result"></select>
+          <datalist id="resultList"></datalist>
+        </label>
+
+        <button class="btn btnGreen" type="button" id="btnGenerate">Готово</button>
+
+        <label style="margin-top:14px;">
+          Готовий результат:
+          <textarea id="output" placeholder="Готовий звіт" readonly></textarea>
+        </label>
+
+        <div class="status" id="status"></div>
+      </div>
+    </div>
+
+    <!-- Screen 2: journal and statistics / Екран 2: журнал та статистика -->
+    <div class="screen screenHidden" id="screen-journal">
+      <div class="card">
+        <label>
+          Період:
+          <div class="row">
+            <input type="date" id="journalFrom" />
+            <input type="date" id="journalTo" />
+          </div>
+        </label>
+
+        <label>
+          Час завершення (за «Час ураження/втрати»):
+          <div class="row">
+            <input type="time" id="journalTimeFrom" />
+            <input type="time" id="journalTimeTo" />
+          </div>
+        </label>
+
+        <button class="btn" type="button" id="btnJournalApply">Показати</button>
+
+        <div class="journal-summary" id="journalSummary"></div>
+
+        <label style="margin-top:14px;">
+          Звіти у періоді (за часом завершення місії):
+          <div class="journal-list" id="journalList" aria-label="Звіти у періоді"></div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Screen 3: config editor / Екран 3: редактор списків -->
+    <div class="screen screenHidden" id="screen-settings">
+      <div class="card">
+        <p class="settings-note">
+          Списки нижче зберігаються локально у браузері та переважають значення з config.json.
+          Кожен рядок — окремий пункт.
+        </p>
+
+        <label>
+          Дрони:
+          <textarea id="settingsDrones" placeholder="По одному значенню в рядок"></textarea>
+        </label>
+
+        <label>
+          Типи місій:
+          <textarea id="settingsMissionTypes" placeholder="По одному значенню в рядок"></textarea>
+        </label>
+
+        <label>
+          Боєприпаси:
+          <textarea id="settingsAmmo" placeholder="По одному значенню в рядок"></textarea>
+        </label>
+
+        <label>
+          Результати:
+          <textarea id="settingsResults" placeholder="По одному значенню в рядок"></textarea>
+        </label>
+
+        <label>
+          Префікси MGRS:
+          <textarea id="settingsMgrsPrefixes" placeholder="По одному значенню в рядок"></textarea>
+        </label>
+
+        <label>
+          Стріми (журнал):
+          <textarea id="settingsStreams" placeholder="Заповнюється автоматично при «Готово», можна редагувати."></textarea>
+        </label>
+
+        <div class="row" style="margin-top:14px;">
+          <button class="btn" type="button" id="btnSettingsSave">Зберегти</button>
+          <button class="btn" type="button" id="btnSettingsReset">Скинути до config.json</button>
         </div>
-        <div class="error" id="counterError"></div>
-      </label>
 
-      <label>
-        Дата:
-        <input type="date" id="datePicker" />
-      </label>
+        <div class="status" id="settingsStatus"></div>
+      </div>
+    </div>
 
-      <label>
-        Борт (утримуй для вводу):
-        <select id="drone"></select>
-        <datalist id="droneList"></datalist>
-      </label>
+    <!-- Screen 4: help / Екран 4: довідка та контакти -->
+    <div class="screen screenHidden" id="screen-help">
+      <div class="card">
+        <p><strong>Коротке керівництво користувача</strong></p>
+        <p>
+          1. Заповніть поля форми на головному екрані: екіпаж, дату, борт, характер місії, часи, координати, боєприпас, стрім та результат.
+          Обов’язкові поля підсвічуються червоною рамкою, якщо залишені порожніми.
+        </p>
+        <p>
+          2. Натисніть кнопку «Готово», щоб згенерувати текст звіту.
+          Звіт буде скопійовано в буфер обміну та доданий до локального журналу.
+        </p>
+        <p>
+          3. Для переходу між екранами натисніть і утримуйте заголовок зверху («Звіт по БПЛА») —
+          відкриється меню з переліком екранів.
+        </p>
+        <p>
+          4. На екрані «Журнал та статистика» оберіть період дат і натисніть «Показати», щоб побачити кількість вильотів
+          та зведену статистику по бортам, боєприпасам, типам місій та результатам.
+        </p>
+        <p>
+          5. На екрані «Налаштування списків» можна змінити локальні списки дронів, боєприпасів, типів місій,
+          результатів, префіксів MGRS та стрімів. Зміни зберігаються тільки в браузері.
+        </p>
 
-      <label>
-        Характер (утримуй для вводу):
-        <select id="missionType"></select>
-        <datalist id="missionTypeList"></datalist>
-      </label>
+        <p style="margin-top:18px;"><strong>Контакти розробника</strong></p>
+        <p>
+          Тут можна розмістити контактні дані розробника (e-mail, Telegram, інші канали зв’язку)
+          відповідно до вимог підрозділу.
+        </p>
+      </div>
+    </div>
 
-      <label>
-        Час зльоту:
-        <div class="row">
-          <input type="time" id="takeoff" />
-          <button class="btn" type="button" id="btnNowTakeoff">Зараз</button>
-        </div>
-      </label>
-
-      <label>
-        Час ураження/втрати:
-        <div class="row">
-          <input type="time" id="impact" />
-          <button class="btn" type="button" id="btnNowImpact">Зараз</button>
-        </div>
-      </label>
-
-      <label>
-        Координати:
-        <select id="mgrsPrefix"></select>
-        <div class="row">
-          <input id="easting" inputmode="numeric" maxlength="5" placeholder="71821" autocomplete="off" />
-          <input id="northing" inputmode="numeric" maxlength="5" placeholder="74569" autocomplete="off" />
-        </div>
-        <div class="error" id="coordError"></div>
-      </label>
-
-      <label>
-        Боєприпас (утримуй для вводу):
-        <select id="ammo"></select>
-        <datalist id="ammoList"></datalist>
-      </label>
-
-      <label>
-        Стрім:
-        <input id="stream" value="---" placeholder="---" maxlength="18" autocomplete="off" spellcheck="false" />
-      </label>
-
-      <label>
-        Результат (утримуй для вводу):
-        <select id="result"></select>
-        <datalist id="resultList"></datalist>
-      </label>
-
-      <button class="btn btnGreen" type="button" id="btnGenerate">Готово</button>
-
-      <label style="margin-top:14px;">
-        Готовий результат:
-        <textarea id="output" placeholder="Готовий звіт" readonly></textarea>
-      </label>
-
-      <div class="status" id="status"></div>
+    <!-- Navigation menu (long-press on title) / Меню навігації (довге натискання на заголовок) -->
+    <div class="screen-menu" id="screenMenu" aria-hidden="true">
+      <div class="screen-menu-backdrop" id="screenMenuBackdrop"></div>
+      <div class="screen-menu-panel">
+        <div class="screen-menu-title">Меню екранів</div>
+        <button class="screen-menu-item" type="button" data-screen="main">Форма звіту</button>
+        <button class="screen-menu-item" type="button" data-screen="journal">Журнал та статистика</button>
+        <button class="screen-menu-item" type="button" data-screen="settings">Налаштування списків</button>
+        <button class="screen-menu-item" type="button" data-screen="help">Довідка та контакти</button>
+        <button class="screen-menu-close" type="button" data-screen-menu-close>Закрити</button>
+      </div>
     </div>
   </div>
 
