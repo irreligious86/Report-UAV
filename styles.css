@@ -145,3 +145,128 @@ button:active { transform: translateY(2px) scale(0.98); }
   color: var(--muted);
   margin-top: 10px;
 }
+
+/* --- Screens & navigation menu / Екрани та меню навігації --- */
+.screen {
+  margin-top: 0;
+}
+
+.screenHidden {
+  display: none;
+}
+
+.journal-summary {
+  margin-top: 12px;
+  font-size: 14px;
+  color: var(--muted);
+  white-space: pre-line;
+}
+
+.journal-list {
+  margin-top: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--stroke2);
+  background: rgba(0,0,0,.45);
+  color: var(--value);
+  font-size: 13px;
+  font-family: ui-monospace, monospace;
+  min-height: 80px;
+  max-height: 260px;
+  overflow-y: auto;
+  white-space: pre-line;
+  box-shadow: var(--shadow-field);
+}
+
+.settings-note {
+  margin-top: 4px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.screen-menu {
+  position: fixed;
+  inset: 0;
+  display: none;
+  z-index: 50;
+}
+
+.screen-menu.is-open {
+  display: block;
+}
+
+.screen-menu-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.65);
+}
+
+.screen-menu-panel {
+  position: absolute;
+  left: 50%;
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 420px;
+  background: linear-gradient(180deg, var(--panel1), var(--panel2));
+  border-radius: var(--radius);
+  border: 1px solid var(--stroke);
+  box-shadow: var(--shadow-card);
+  padding: 10px 10px 12px;
+}
+
+.screen-menu-title {
+  text-align: center;
+  font-size: 16px;
+  color: var(--label);
+  margin-bottom: 6px;
+}
+
+.screen-menu-item {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 16px;
+}
+
+.screen-menu-close {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 12px;
+  font-size: 16px;
+  border-color: rgba(255,77,109,.5);
+  color: var(--danger);
+}
+
+.screen-menu-item.is-active {
+  border-color: rgba(0,255,102,.9);
+  background: linear-gradient(180deg, rgba(0,255,102,.18), rgba(0,0,0,.5));
+  color: var(--value);
+}
+
+@keyframes screenMenuFlash {
+  0% {
+    transform: translateX(-50%) translateY(0);
+    box-shadow: var(--shadow-card);
+  }
+  45% {
+    transform: translateX(-50%) translateY(-3px);
+    box-shadow: 0 0 22px rgba(85,243,255,.45);
+  }
+  100% {
+    transform: translateX(-50%) translateY(0);
+    box-shadow: var(--shadow-card);
+  }
+}
+
+.screen-menu-panel.screen-menu-animating {
+  animation: screenMenuFlash 180ms ease-out;
+}
+
+/* Make native calendar/time icons visible on dark background. Зробити іконку календаря/часу помітною. */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) opacity(0.85);
+}
