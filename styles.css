@@ -104,6 +104,14 @@ textarea {
   overflow: hidden;
 }
 
+/* Settings screen: allow scrolling inside list editors */
+#screen-settings textarea {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* smoother scroll on iOS */
+  max-height: 240px;                 /* so it doesn't grow forever */
+  resize: vertical;                  /* optional: allow user to stretch */
+}
+
 /* --- Rows, buttons, states / Рядки, кнопки, стани --- */
 .row { display: flex; gap: 10px; align-items: stretch; }
 .small { flex: 0 0 140px; }
