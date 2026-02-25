@@ -17,12 +17,79 @@ export function initJournalScreen() {
   if (initialized) return;
   initialized = true;
 
+  // Apply
   const btnApply = $("btnJournalApply");
-  if (btnApply) {
-    btnApply.onclick = () => {
-      renderForSelectedPeriod();
+  if (btnApply) btnApply.onclick = () => renderForSelectedPeriod();
+
+  // Copy summary
+  const btnCopy = $("btnCopyJournalSummary");
+  if (btnCopy) {
+    btnCopy.onclick = async () => {
+      const summaryEl = $("journalSummary");
+      const text = (summaryEl?.textContent || "").trim();
+      if (!text) return;
+      await copyTextSmart(text);
     };
   }
+
+  // Tabs
+  const tabStats = $("tabStats");
+  const tabJournal = $("tabJournal");
+  const statsSection = $("statsSection");
+  const journalSection = $("journalSection");
+
+  const setTab = (name) => {
+    const isStats = name === "stats";
+
+    if (tabStats) tabStats.classList.toggle("active", isStats);
+    if (tabJournal) tabJournal.classList.toggle("active", !isStats);
+
+    if (statsSection) statsSection.style.display = isStats ? "" : "none";
+    if (journalSection) journalSection.style.display = isStats ? "none" : "";
+  };
+
+  if (tabStats) tabStats.onclick = () => setTab("stats");
+  if (tabJournal) tabJournal.onclick = () => setTab("journal");
+  setTab("stats");
+
+  // Search (debounced)
+  const searchEl = $("journalSearch");
+  if (searchEl) {
+    let t = null;
+    searchEl.oninput = () => {
+      clearTimeout(t);
+      t = setTimeout(() => renderForSelectedPeriod(), 200);
+    };
+  }
+
+  // Default period: current month
+  applyDefaultPeriodCurrentMonth();
+
+  // First render
+  renderForSelectedPeriod();
+}
+
+/**
+ * Default: first day of current month 00:00, last day of current month 23:59
+ */
+function applyDefaultPeriodCurrentMonth() {
+  const fromEl = $("journalFrom");
+  const toEl = $("journalTo");
+  const timeFromEl = $("journalTimeFrom");
+  const timeToEl = $("journalTimeTo");
+
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const toISO = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+  if (fromEl && !fromEl.value) fromEl.value = toISO(first);
+  if (toEl && !toEl.value) toEl.value = toISO(last);
+
+  if (timeFromEl && !timeFromEl.value) timeFromEl.value = "00:00";
+  if (timeToEl && !timeToEl.value) timeToEl.value = "23:59";
 }
 
 /**
@@ -41,6 +108,7 @@ function parseReportText(text) {
   for (const line of lines.slice(2)) {
     const idx = line.indexOf(":");
     if (idx === -1) continue;
+
     const key = line.slice(0, idx).trim();
     const value = line.slice(idx + 1).trim();
 
@@ -72,26 +140,23 @@ function parseReportText(text) {
 }
 
 /**
- * Renders journal list and statistics for the selected date period.
- * Будує список звітів та статистику за обраний період.
+ * Renders journal cards and statistics for the selected period.
+ * Будує журнал (картками) та статистику за обраний період.
  */
 function renderForSelectedPeriod() {
-  const fromEl = $("journalFrom");
-  const toEl = $("journalTo");
-  const timeFromEl = $("journalTimeFrom");
-  const timeToEl = $("journalTimeTo");
+  const fromIso = (($("journalFrom")?.value) || "").trim();
+  const toIso = (($("journalTo")?.value) || "").trim();
+  const fromTimeStr = (($("journalTimeFrom")?.value) || "").trim();
+  const toTimeStr = (($("journalTimeTo")?.value) || "").trim();
+
   const summaryEl = $("journalSummary");
-  const listEl = $("journalList");
-
-  if (!summaryEl || !listEl) return;
-
-  const fromIso = ((fromEl && fromEl.value) || "").trim();
-  const toIso = ((toEl && toEl.value) || "").trim();
-  const fromTimeStr = ((timeFromEl && timeFromEl.value) || "").trim();
-  const toTimeStr = ((timeToEl && timeToEl.value) || "").trim();
+  const cardsEl = $("journalCards"); // NEW container
+  if (!summaryEl || !cardsEl) return;
 
   const fromMs = buildBoundaryTimestamp(fromIso, fromTimeStr, true);
   const toMs = buildBoundaryTimestamp(toIso, toTimeStr, false);
+
+  const searchStr = (($("journalSearch")?.value) || "").trim().toLowerCase();
 
   const reports = loadReports();
 
@@ -103,12 +168,29 @@ function renderForSelectedPeriod() {
     if (!Number.isNaN(fromMs) && impactMs < fromMs) return false;
     if (!Number.isNaN(toMs) && impactMs > toMs) return false;
 
+    if (searchStr) {
+      const hay = (r.text || "").toLowerCase();
+      if (!hay.includes(searchStr)) return false;
+    }
+
     return true;
   });
 
+    // Newest first (by mission end time)
+  filtered.sort((a, b) => {
+    const pa = parseReportText(a.text);
+    const pb = parseReportText(b.text);
+    const ta = buildImpactTimestamp(pa, a.ts) ?? 0;
+    const tb = buildImpactTimestamp(pb, b.ts) ?? 0;
+    return tb - ta;
+  });
+
+  // Always clear cards
+  cardsEl.textContent = "";
+
   if (filtered.length === 0) {
     summaryEl.textContent = "За обраний період звітів не знайдено.";
-    listEl.value = "";
+    updateKPI(0, 0, 0);
     return;
   }
 
@@ -120,24 +202,100 @@ function renderForSelectedPeriod() {
     results: new Map(),
   };
 
-  const linesForList = [];
+  // KPI simple heuristic (temporary): count "Ураження" vs "Втрата" by substring
+  let hits = 0;
+  let loss = 0;
 
+  const allTexts = [];
+
+  // Render cards
   for (const item of filtered) {
     const parsed = parseReportText(item.text);
 
-    const datePart = parsed.date || item.ts.slice(0, 10);
-    const header = `${datePart} — ${parsed.crew || ""}`.trim();
-    linesForList.push(header);
-    linesForList.push(item.text);
-    linesForList.push(""); // empty line separator
+    const datePart =
+      normalizeDateForHeader(parsed.date) ||
+      String(item.ts || "").slice(0, 10) ||
+      (parsed.date || "");
 
+    const header = `${datePart} — ${parsed.crew || ""}`.trim();
+
+    allTexts.push(item.text);
+
+    // Count maps
     if (parsed.drone) inc(counts.drones, parsed.drone);
     if (parsed.ammo) inc(counts.ammo, parsed.ammo);
     if (parsed.missionType) inc(counts.missionTypes, parsed.missionType);
-    if (parsed.result) inc(counts.results, parsed.result);
+    if (parsed.result) {
+      inc(counts.results, parsed.result);
+
+      const r = parsed.result.toLowerCase();
+      if (r.includes("уражен")) hits += 1;
+      if (r.includes("втрата")) loss += 1;
+    }
+
+    // Card DOM
+    const card = document.createElement("div");
+    card.className = "journal-card";
+
+    const head = document.createElement("div");
+    head.className = "journal-card-head";
+
+    const title = document.createElement("div");
+    title.className = "journal-card-title";
+    title.textContent = header;
+
+    const actions = document.createElement("div");
+    actions.className = "journal-card-actions";
+
+    const btnCopyOne = document.createElement("button");
+    btnCopyOne.type = "button";
+    btnCopyOne.className = "btnSmall";
+    btnCopyOne.textContent = "Copy";
+    btnCopyOne.onclick = () => copyTextSmart(item.text);
+
+    const btnShare = document.createElement("button");
+    btnShare.type = "button";
+    btnShare.className = "btnSmall";
+    btnShare.textContent = "Share";
+    btnShare.onclick = async () => {
+      if (navigator.share) {
+        try {
+          await navigator.share({ text: item.text });
+        } catch {
+          // user canceled or unsupported
+        }
+      } else {
+        await copyTextSmart(item.text);
+      }
+    };
+
+    actions.appendChild(btnCopyOne);
+    actions.appendChild(btnShare);
+
+    head.appendChild(title);
+    head.appendChild(actions);
+
+    const body = document.createElement("div");
+    body.className = "journal-card-body";
+    body.textContent = item.text;
+
+    card.appendChild(head);
+    card.appendChild(body);
+
+    cardsEl.appendChild(card);
   }
 
+  // Copy all
+  const btnCopyAll = $("btnJournalCopyAll");
+  if (btnCopyAll) {
+    btnCopyAll.onclick = () => copyTextSmart(allTexts.join("\n\n---\n\n"));
+  }
+
+  // Summary text (as before)
   const parts = [];
+  const fmtPeriod = (d, t) => (d ? (t ? `${d} ${t}` : d) : "");
+  parts.push(`Період: ${fmtPeriod(fromIso, fromTimeStr)} → ${fmtPeriod(toIso, toTimeStr)}`);
+  parts.push("");
   parts.push(`Кількість вильотів: ${counts.total}`);
 
   const block = (label, map) => {
@@ -155,12 +313,13 @@ function renderForSelectedPeriod() {
   block("Результатів", counts.results);
 
   summaryEl.textContent = parts.join("\n\n");
-  listEl.textContent = linesForList.join("\n");
+
+  // KPI
+  updateKPI(counts.total, hits, loss);
 }
 
 /**
  * Helper to increment value in Map.
- * Допоміжна функція для інкременту значення в Map.
  * @param {Map<string, number>} map
  * @param {string} key
  */
@@ -169,23 +328,59 @@ function inc(map, key) {
 }
 
 /**
+ * KPI render
+ */
+function updateKPI(total, hits, loss) {
+  const kTotal = $("kpiTotal");
+  const kHits = $("kpiHits");
+  const kLoss = $("kpiLoss");
+  const kRate = $("kpiRate");
+
+  if (kTotal) kTotal.textContent = String(total);
+  if (kHits) kHits.textContent = String(hits);
+  if (kLoss) kLoss.textContent = String(loss);
+
+  const rate = total ? Math.round((hits / total) * 100) : 0;
+  if (kRate) kRate.textContent = `${rate}%`;
+}
+
+/**
+ * Normalize "DD.MM.YYYY" -> "YYYY-MM-DD" for header if possible.
+ */
+function normalizeDateForHeader(dateStr) {
+  const s = (dateStr || "").trim();
+  if (!s) return "";
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  const m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (!m) return "";
+
+  const dd = String(parseInt(m[1], 10)).padStart(2, "0");
+  const mm = String(parseInt(m[2], 10)).padStart(2, "0");
+  const yyyy = m[3];
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
  * Builds timestamp (ms) from report's date and impact time, or falls back to stored ts.
- * Повертає мітку часу (мс) з дати звіту та часу ураження, або з ts, якщо дані відсутні.
  * @param {{date?: string, impactTime?: string}} parsed
  * @param {string} fallbackTs
  * @returns {number|null}
  */
 function buildImpactTimestamp(parsed, fallbackTs) {
-  if (parsed && parsed.date && parsed.impactTime) {
-    const dateParts = parsed.date.split(".");
-    const timeParts = parsed.impactTime.split(":");
-    if (dateParts.length === 3 && timeParts.length >= 2) {
-      const day = parseInt(dateParts[0], 10);
-      const month = parseInt(dateParts[1], 10);
-      const year = parseInt(dateParts[2], 10);
-      const hour = parseInt(timeParts[0], 10);
-      const minute = parseInt(timeParts[1], 10);
-      const d = new Date(year, month - 1, day, hour, minute || 0, 0, 0);
+  // Prefer parsed DD.MM.YYYY + HH:MM
+  const iso = normalizeDateForHeader(parsed?.date || "");
+  const time = (parsed?.impactTime || "").trim();
+
+  if (iso && time) {
+    const base = Date.parse(iso); // local midnight
+    if (!Number.isNaN(base)) {
+      const parts = time.split(":");
+      const hour = parseInt(parts[0] || "0", 10);
+      const minute = parseInt(parts[1] || "0", 10);
+      const d = new Date(base);
+      d.setHours(hour || 0, minute || 0, 0, 0);
       const ms = d.getTime();
       if (!Number.isNaN(ms)) return ms;
     }
@@ -198,7 +393,6 @@ function buildImpactTimestamp(parsed, fallbackTs) {
 
 /**
  * Builds boundary timestamp from date+time inputs.
- * Повертає мітку часу межі з полів дати/часу.
  * @param {string} isoDate - "YYYY-MM-DD" or "".
  * @param {string} timeStr - "HH:MM" or "".
  * @param {boolean} isStart - true for start (from), false for end (to).
@@ -211,19 +405,12 @@ function buildBoundaryTimestamp(isoDate, timeStr, isStart) {
   if (Number.isNaN(base)) return NaN;
 
   if (!timeStr) {
-    if (isStart) {
-      return base;
-    }
-    return base + 24 * 60 * 60 * 1000 - 1;
-  }
-
-  const parts = timeStr.split(":");
-  if (parts.length < 2) {
     return isStart ? base : base + 24 * 60 * 60 * 1000 - 1;
   }
 
-  const hour = parseInt(parts[0], 10);
-  const minute = parseInt(parts[1], 10);
+  const parts = timeStr.split(":");
+  const hour = parseInt(parts[0] || "0", 10);
+  const minute = parseInt(parts[1] || "0", 10);
 
   const d = new Date(base);
   d.setHours(hour || 0, minute || 0, isStart ? 0 : 59, isStart ? 0 : 999);
@@ -234,3 +421,22 @@ function buildBoundaryTimestamp(isoDate, timeStr, isStart) {
   return ms;
 }
 
+/**
+ * Copies text to clipboard with fallback.
+ * @param {string} text
+ */
+async function copyTextSmart(text) {
+  const t = (text || "").trim();
+  if (!t) return;
+
+  try {
+    await navigator.clipboard.writeText(t);
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = t;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+  }
+}

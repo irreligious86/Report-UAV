@@ -123,14 +123,58 @@
           </div>
         </label>
 
-        <button class="btn" type="button" id="btnJournalApply">Показати</button>
+        <button class="btn btn-apply" type="button" id="btnJournalApply">Показати</button>
 
-        <div class="journal-summary" id="journalSummary"></div>
+        <div id="dashboard">
+          <div class="dashboard-kpi">
+            <div class="kpi-box">
+              <div class="kpi-label">Вильотів</div>
+              <div class="kpi-value" id="kpiTotal">0</div>
+            </div>
 
-        <label style="margin-top:14px;">
-          Звіти у періоді (за часом завершення місії):
-          <div class="journal-list" id="journalList" aria-label="Звіти у періоді"></div>
-        </label>
+            <div class="kpi-box">
+              <div class="kpi-label">Уражень</div>
+              <div class="kpi-value success" id="kpiHits">0</div>
+            </div>
+
+            <div class="kpi-box">
+              <div class="kpi-label">Втрат</div>
+              <div class="kpi-value danger" id="kpiLoss">0</div>
+            </div>
+
+            <div class="kpi-box">
+              <div class="kpi-label">Ефективність</div>
+              <div class="kpi-value" id="kpiRate">0%</div>
+            </div>
+          </div>
+
+          <div class="dashboard-tabs">
+            <button id="tabStats" class="tab active" type="button">Статистика</button>
+            <button id="tabJournal" class="tab" type="button">Журнал</button>
+          </div>
+
+          <!-- TAB: STATS -->
+          <div id="statsSection">
+            <div id="barsContainer"></div>
+
+            <div class="journal-summary" id="journalSummary"></div>
+            <button class="btn" type="button" id="btnCopyJournalSummary">Copy summary</button>
+          </div>
+
+          <!-- TAB: JOURNAL (mobile-friendly cards) -->
+          <div id="journalSection" style="display:none;">
+            <label style="margin-top:10px;">
+              Пошук (по тексту звіту):
+              <input id="journalSearch" placeholder="Напр. УАБК, Дакар, 12:30..." autocomplete="off" />
+            </label>
+
+            <div class="journal-toolbar">
+              <button class="btn" type="button" id="btnJournalCopyAll">Copy all</button>
+            </div>
+
+            <div class="journal-cards" id="journalCards" aria-label="Звіти у періоді"></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -186,96 +230,96 @@
       <div class="card">
         <p><strong>Як користуватися застосунком</strong></p>
 
-<p>
-1. На головному екрані заповніть поля форми:
-екіпаж, дату, борт, характер місії, час зльоту, час ураження/втрати,
-координати, боєприпас, стрім та результат.
-</p>
+        <p>
+          1. На головному екрані заповніть поля форми:
+          екіпаж, дату, борт, характер місії, час зльоту, час ураження/втрати,
+          координати, боєприпас, стрім та результат.
+        </p>
 
-<p>
-2. Після заповнення натисніть кнопку «Готово».
-Застосунок:
-<br />
-— сформує готовий текст звіту;<br />
-— автоматично скопіює його в буфер обміну;<br />
-— збереже звіт у локальний журнал.
-</p>
+        <p>
+          2. Після заповнення натисніть кнопку «Готово».
+          Застосунок:
+          <br />
+          — сформує готовий текст звіту;<br />
+          — автоматично скопіює його в буфер обміну;<br />
+          — збереже звіт у локальний журнал.
+        </p>
 
-<p>
-3. Щоб переглянути статистику та історію, відкрийте «Журнал та статистика».
-Там можна обрати період і побачити кількість вильотів, результати,
-статистику по бортам та боєприпасам.
-</p>
+        <p>
+          3. Щоб переглянути статистику та історію, відкрийте «Журнал та статистика».
+          Там можна обрати період і побачити кількість вильотів, результати,
+          статистику по бортам та боєприпасам.
+        </p>
 
-<p>
-4. Для переходу між екранами натисніть і утримуйте заголовок
-«Звіт по БПЛА» у верхній частині екрану.
-</p>
+        <p>
+          4. Для переходу між екранами натисніть і утримуйте заголовок
+          «Звіт по БПЛА» у верхній частині екрану.
+        </p>
 
-<hr style="margin:14px 0; opacity:.2;" />
+        <hr style="margin:14px 0; opacity:.2;" />
 
-<p><strong>Навіщо встановлювати як PWA (додаток на телефоні)</strong></p>
+        <p><strong>Навіщо встановлювати як PWA (додаток на телефоні)</strong></p>
 
-<p>
-PWA — це встановлення сайту як окремого додатку на телефон.
-Після встановлення:
-<br />
-— застосунок працює швидше;<br />
-— відкривається як звичайна програма;<br />
-— працює офлайн після першого завантаження;<br />
-— не потребує інтернету для створення звітів.
-</p>
+        <p>
+          PWA — це встановлення сайту як окремого додатку на телефон.
+          Після встановлення:
+          <br />
+          — застосунок працює швидше;<br />
+          — відкривається як звичайна програма;<br />
+          — працює офлайн після першого завантаження;<br />
+          — не потребує інтернету для створення звітів.
+        </p>
 
-<hr style="margin:14px 0; opacity:.2;" />
+        <hr style="margin:14px 0; opacity:.2;" />
 
-<p><strong>Як встановити на Android (рекомендовано)</strong></p>
+        <p><strong>Як встановити на Android (рекомендовано)</strong></p>
 
-<p>
-1. Відкрийте застосунок у браузері Google Chrome.<br />
-2. Натисніть три крапки у правому верхньому куті.<br />
-3. Оберіть «Додати на головний екран» або «Встановити застосунок».<br />
-4. Підтвердіть встановлення.
-</p>
+        <p>
+          1. Відкрийте застосунок у браузері Google Chrome.<br />
+          2. Натисніть три крапки у правому верхньому куті.<br />
+          3. Оберіть «Додати на головний екран» або «Встановити застосунок».<br />
+          4. Підтвердіть встановлення.
+        </p>
 
-<p>
-Після цього іконка з’явиться на головному екрані телефону.
-</p>
+        <p>
+          Після цього іконка з’явиться на головному екрані телефону.
+        </p>
 
-<hr style="margin:14px 0; opacity:.2;" />
+        <hr style="margin:14px 0; opacity:.2;" />
 
-<p><strong>Як встановити на iPhone</strong></p>
+        <p><strong>Як встановити на iPhone</strong></p>
 
-<p>
-1. Відкрийте застосунок у браузері Safari.<br />
-2. Натисніть кнопку «Поділитися» (квадрат зі стрілкою).<br />
-3. Оберіть «На екран Додому».<br />
-4. Підтвердіть додавання.
-</p>
+        <p>
+          1. Відкрийте застосунок у браузері Safari.<br />
+          2. Натисніть кнопку «Поділитися» (квадрат зі стрілкою).<br />
+          3. Оберіть «На екран Додому».<br />
+          4. Підтвердіть додавання.
+        </p>
 
-<p>
-На iPhone застосунок також працює офлайн після першого відкриття.
-</p>
+        <p>
+          На iPhone застосунок також працює офлайн після першого відкриття.
+        </p>
 
-<hr style="margin:14px 0; opacity:.2;" />
+        <hr style="margin:14px 0; opacity:.2;" />
 
-<p><strong>Збереження даних</strong></p>
+        <p><strong>Збереження даних</strong></p>
 
-<p>
-Усі звіти зберігаються тільки в браузері вашого пристрою.
-Дані не передаються на сервер.
-Якщо очистити дані браузера або перевстановити систему —
-журнал буде втрачено.
-</p>
+        <p>
+          Усі звіти зберігаються тільки в браузері вашого пристрою.
+          Дані не передаються на сервер.
+          Якщо очистити дані браузера або перевстановити систему —
+          журнал буде втрачено.
+        </p>
 
-<hr style="margin:18px 0; opacity:.2;" />
+        <hr style="margin:18px 0; opacity:.2;" />
 
-<p><strong>Контакти розробника</strong></p>
+        <p><strong>Контакти розробника</strong></p>
 
-<p>
-Telegram: <a href="https://t.me/irreligious_86" target="_blank" rel="noopener">@irreligious_86</a><br />
-E-mail: <a href="mailto:irreligious86@gmail.com">irreligious86@gmail.com</a><br />
-GitHub: <a href="https://github.com/irreligious86/Report-UAV" target="_blank" rel="noopener">irreligious86/Report-UAV</a>
-</p>
+        <p>
+          Telegram: <a href="https://t.me/irreligious_86" target="_blank" rel="noopener">@irreligious_86</a><br />
+          E-mail: <a href="mailto:irreligious86@gmail.com">irreligious86@gmail.com</a><br />
+          GitHub: <a href="https://github.com/irreligious86/Report-UAV" target="_blank" rel="noopener">irreligious86/Report-UAV</a>
+        </p>
       </div>
     </div>
 
