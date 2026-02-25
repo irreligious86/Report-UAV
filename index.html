@@ -1,3 +1,11 @@
+<!--
+  Report UAV — main application page.
+  Звіт БПЛА — головна сторінка додатку.
+
+  Single-page form: crew, date, drone, mission type, takeoff/impact time,
+  MGRS-style coordinates (prefix + easting + northing), ammo, stream, result.
+  Script entry: js/app.js (ES module).
+-->
 <!DOCTYPE html>
 <html lang="uk">
 <head>
@@ -13,87 +21,322 @@
   <div class="wrap">
     <div class="title" id="title">Звіт по БПЛА</div>
 
-    <div class="card">
-      <label>
-        Екіпаж:
-        <div class="row">
-          <input id="crew" value="Дакар" placeholder="Дакар" maxlength="20" autocomplete="off" spellcheck="false" />
-          <input id="crewCounter" class="small" inputmode="numeric" placeholder="1..25" maxlength="2" autocomplete="off" />
+    <!-- Screen 1: main report form / Головний екран: форма звіту -->
+    <div class="screen" id="screen-main">
+      <div class="card">
+        <label>
+          Екіпаж:
+          <div class="row">
+            <input id="crew" value="Дакар" placeholder="Дакар" maxlength="20" autocomplete="off" spellcheck="false" />
+            <input id="crewCounter" class="small" inputmode="numeric" placeholder="1..25" maxlength="2" autocomplete="off" />
+          </div>
+          <div class="error" id="counterError"></div>
+        </label>
+
+        <label>
+          Дата:
+          <input type="date" id="datePicker" />
+        </label>
+
+        <label>
+          Борт (утримуй для вводу):
+          <select id="drone"></select>
+          <datalist id="droneList"></datalist>
+        </label>
+
+        <label>
+          Характер (утримуй для вводу):
+          <select id="missionType"></select>
+          <datalist id="missionTypeList"></datalist>
+        </label>
+
+        <label>
+          Час зльоту:
+          <div class="row">
+            <input type="time" id="takeoff" />
+            <button class="btn" type="button" id="btnNowTakeoff">Зараз</button>
+          </div>
+        </label>
+
+        <label>
+          Час ураження/втрати:
+          <div class="row">
+            <input type="time" id="impact" />
+            <button class="btn" type="button" id="btnNowImpact">Зараз</button>
+          </div>
+        </label>
+
+        <label>
+          Координати:
+          <select id="mgrsPrefix"></select>
+          <div class="row">
+            <input id="easting" inputmode="numeric" maxlength="5" placeholder="71821" autocomplete="off" />
+            <input id="northing" inputmode="numeric" maxlength="5" placeholder="74569" autocomplete="off" />
+          </div>
+          <div class="error" id="coordError"></div>
+        </label>
+
+        <label>
+          Боєприпас (утримуй для вводу):
+          <select id="ammo"></select>
+          <datalist id="ammoList"></datalist>
+        </label>
+
+        <label>
+          Стрім:
+          <input id="stream" value="---" placeholder="---" maxlength="18" autocomplete="off" spellcheck="false" />
+        </label>
+
+        <label>
+          Результат (утримуй для вводу):
+          <select id="result"></select>
+          <datalist id="resultList"></datalist>
+        </label>
+
+        <button class="btn btnGreen" type="button" id="btnGenerate">Готово</button>
+
+        <label style="margin-top:14px;">
+          Готовий результат:
+          <textarea id="output" placeholder="Готовий звіт" readonly></textarea>
+        </label>
+
+        <div class="status" id="status"></div>
+      </div>
+    </div>
+
+    <!-- Screen 2: journal and statistics / Екран 2: журнал та статистика -->
+    <div class="screen screenHidden" id="screen-journal">
+      <div class="card">
+        <label>
+          Період:
+          <div class="row">
+            <input type="date" id="journalFrom" />
+            <input type="date" id="journalTo" />
+          </div>
+        </label>
+
+        <label>
+          Час завершення (за «Час ураження/втрати»):
+          <div class="row">
+            <input type="time" id="journalTimeFrom" />
+            <input type="time" id="journalTimeTo" />
+          </div>
+        </label>
+
+        <button class="btn btn-apply" type="button" id="btnJournalApply">Показати</button>
+
+        <div id="dashboard">
+          <div class="dashboard-kpi">
+            <div class="kpi-box">
+              <div class="kpi-label">Вильотів</div>
+              <div class="kpi-value" id="kpiTotal">0</div>
+            </div>
+
+            <div class="kpi-box">
+              <div class="kpi-label">Уражень</div>
+              <div class="kpi-value success" id="kpiHits">0</div>
+            </div>
+
+            <div class="kpi-box">
+              <div class="kpi-label">Втрат</div>
+              <div class="kpi-value danger" id="kpiLoss">0</div>
+            </div>
+
+            <div class="kpi-box">
+              <div class="kpi-label">Ефективність</div>
+              <div class="kpi-value" id="kpiRate">0%</div>
+            </div>
+          </div>
+
+          <div class="dashboard-tabs">
+            <button id="tabStats" class="tab active" type="button">Статистика</button>
+            <button id="tabJournal" class="tab" type="button">Журнал</button>
+          </div>
+
+          <!-- TAB: STATS -->
+          <div id="statsSection">
+            <div id="barsContainer"></div>
+
+            <div class="journal-summary" id="journalSummary"></div>
+            <button class="btn" type="button" id="btnCopyJournalSummary">Copy summary</button>
+          </div>
+
+          <!-- TAB: JOURNAL (mobile-friendly cards) -->
+          <div id="journalSection" style="display:none;">
+            <label style="margin-top:10px;">
+              Пошук (по тексту звіту):
+              <input id="journalSearch" placeholder="Напр. УАБК, Дакар, 12:30..." autocomplete="off" />
+            </label>
+
+            <div class="journal-toolbar">
+              <button class="btn" type="button" id="btnJournalCopyAll">Copy all</button>
+            </div>
+
+            <div class="journal-cards" id="journalCards" aria-label="Звіти у періоді"></div>
+          </div>
         </div>
-        <div class="error" id="counterError"></div>
-      </label>
+      </div>
+    </div>
 
-      <label>
-        Дата:
-        <input type="date" id="datePicker" />
-      </label>
+    <!-- Screen 3: config editor / Екран 3: редактор списків -->
+    <div class="screen screenHidden" id="screen-settings">
+      <div class="card">
+        <p class="settings-note">
+          Списки нижче зберігаються локально у браузері та переважають значення з config.json.
+          Кожен рядок — окремий пункт.
+        </p>
 
-      <label>
-        Борт (утримуй для вводу):
-        <select id="drone"></select>
-        <datalist id="droneList"></datalist>
-      </label>
+        <label>
+          Дрони:
+          <textarea id="settingsDrones" placeholder="По одному значенню в рядок"></textarea>
+        </label>
 
-      <label>
-        Характер (утримуй для вводу):
-        <select id="missionType"></select>
-        <datalist id="missionTypeList"></datalist>
-      </label>
+        <label>
+          Типи місій:
+          <textarea id="settingsMissionTypes" placeholder="По одному значенню в рядок"></textarea>
+        </label>
 
-      <label>
-        Час зльоту:
-        <div class="row">
-          <input type="time" id="takeoff" />
-          <button class="btn" type="button" id="btnNowTakeoff">Зараз</button>
+        <label>
+          Боєприпаси:
+          <textarea id="settingsAmmo" placeholder="По одному значенню в рядок"></textarea>
+        </label>
+
+        <label>
+          Результати:
+          <textarea id="settingsResults" placeholder="По одному значенню в рядок"></textarea>
+        </label>
+
+        <label>
+          Префікси MGRS:
+          <textarea id="settingsMgrsPrefixes" placeholder="По одному значенню в рядок"></textarea>
+        </label>
+
+        <label>
+          Стріми (журнал):
+          <textarea id="settingsStreams" placeholder="Заповнюється автоматично при «Готово», можна редагувати."></textarea>
+        </label>
+
+        <div class="row" style="margin-top:14px;">
+          <button class="btn" type="button" id="btnSettingsSave">Зберегти</button>
+          <button class="btn" type="button" id="btnSettingsReset">Скинути до config.json</button>
         </div>
-      </label>
 
-      <label>
-        Час ураження/втрати:
-        <div class="row">
-          <input type="time" id="impact" />
-          <button class="btn" type="button" id="btnNowImpact">Зараз</button>
-        </div>
-      </label>
+        <div class="status" id="settingsStatus"></div>
+      </div>
+    </div>
 
-      <label>
-        Координати:
-        <select id="mgrsPrefix"></select>
-        <div class="row">
-          <input id="easting" inputmode="numeric" maxlength="5" placeholder="71821" autocomplete="off" />
-          <input id="northing" inputmode="numeric" maxlength="5" placeholder="74569" autocomplete="off" />
-        </div>
-        <div class="error" id="coordError"></div>
-      </label>
+    <!-- Screen 4: help / Екран 4: довідка та контакти -->
+    <div class="screen screenHidden" id="screen-help">
+      <div class="card">
+        <p><strong>Як користуватися застосунком</strong></p>
 
-      <label>
-        Боєприпас (утримуй для вводу):
-        <select id="ammo"></select>
-        <datalist id="ammoList"></datalist>
-      </label>
+        <p>
+          1. На головному екрані заповніть поля форми:
+          екіпаж, дату, борт, характер місії, час зльоту, час ураження/втрати,
+          координати, боєприпас, стрім та результат.
+        </p>
 
-      <label>
-        Стрім:
-        <input id="stream" value="---" placeholder="---" maxlength="18" autocomplete="off" spellcheck="false" />
-      </label>
+        <p>
+          2. Після заповнення натисніть кнопку «Готово».
+          Застосунок:
+          <br />
+          — сформує готовий текст звіту;<br />
+          — автоматично скопіює його в буфер обміну;<br />
+          — збереже звіт у локальний журнал.
+        </p>
 
-      <label>
-        Результат (утримуй для вводу):
-        <select id="result"></select>
-        <datalist id="resultList"></datalist>
-      </label>
+        <p>
+          3. Щоб переглянути статистику та історію, відкрийте «Журнал та статистика».
+          Там можна обрати період і побачити кількість вильотів, результати,
+          статистику по бортам та боєприпасам.
+        </p>
 
-      <button class="btn btnGreen" type="button" id="btnGenerate">Готово</button>
+        <p>
+          4. Для переходу між екранами натисніть і утримуйте заголовок
+          «Звіт по БПЛА» у верхній частині екрану.
+        </p>
 
-      <label style="margin-top:14px;">
-        Готовий результат:
-        <textarea id="output" placeholder="Готовий звіт" readonly></textarea>
-      </label>
+        <hr style="margin:14px 0; opacity:.2;" />
 
-      <div class="status" id="status"></div>
+        <p><strong>Навіщо встановлювати як PWA (додаток на телефоні)</strong></p>
+
+        <p>
+          PWA — це встановлення сайту як окремого додатку на телефон.
+          Після встановлення:
+          <br />
+          — застосунок працює швидше;<br />
+          — відкривається як звичайна програма;<br />
+          — працює офлайн після першого завантаження;<br />
+          — не потребує інтернету для створення звітів.
+        </p>
+
+        <hr style="margin:14px 0; opacity:.2;" />
+
+        <p><strong>Як встановити на Android (рекомендовано)</strong></p>
+
+        <p>
+          1. Відкрийте застосунок у браузері Google Chrome.<br />
+          2. Натисніть три крапки у правому верхньому куті.<br />
+          3. Оберіть «Додати на головний екран» або «Встановити застосунок».<br />
+          4. Підтвердіть встановлення.
+        </p>
+
+        <p>
+          Після цього іконка з’явиться на головному екрані телефону.
+        </p>
+
+        <hr style="margin:14px 0; opacity:.2;" />
+
+        <p><strong>Як встановити на iPhone</strong></p>
+
+        <p>
+          1. Відкрийте застосунок у браузері Safari.<br />
+          2. Натисніть кнопку «Поділитися» (квадрат зі стрілкою).<br />
+          3. Оберіть «На екран Додому».<br />
+          4. Підтвердіть додавання.
+        </p>
+
+        <p>
+          На iPhone застосунок також працює офлайн після першого відкриття.
+        </p>
+
+        <hr style="margin:14px 0; opacity:.2;" />
+
+        <p><strong>Збереження даних</strong></p>
+
+        <p>
+          Усі звіти зберігаються тільки в браузері вашого пристрою.
+          Дані не передаються на сервер.
+          Якщо очистити дані браузера або перевстановити систему —
+          журнал буде втрачено.
+        </p>
+
+        <hr style="margin:18px 0; opacity:.2;" />
+
+        <p><strong>Контакти розробника</strong></p>
+
+        <p>
+          Telegram: <a href="https://t.me/irreligious_86" target="_blank" rel="noopener">@irreligious_86</a><br />
+          E-mail: <a href="mailto:irreligious86@gmail.com">irreligious86@gmail.com</a><br />
+          GitHub: <a href="https://github.com/irreligious86/Report-UAV" target="_blank" rel="noopener">irreligious86/Report-UAV</a>
+        </p>
+      </div>
+    </div>
+
+    <!-- Navigation menu (long-press on title) / Меню навігації (довге натискання на заголовок) -->
+    <div class="screen-menu" id="screenMenu" aria-hidden="true">
+      <div class="screen-menu-backdrop" id="screenMenuBackdrop"></div>
+      <div class="screen-menu-panel">
+        <div class="screen-menu-title">Меню екранів</div>
+        <button class="screen-menu-item" type="button" data-screen="main">Форма звіту</button>
+        <button class="screen-menu-item" type="button" data-screen="journal">Журнал та статистика</button>
+        <button class="screen-menu-item" type="button" data-screen="settings">Налаштування списків</button>
+        <button class="screen-menu-item" type="button" data-screen="help">Довідка та контакти</button>
+        <button class="screen-menu-close" type="button" data-screen-menu-close>Закрити</button>
+      </div>
     </div>
   </div>
 
-  <script defer src="app.js"></script>
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>
