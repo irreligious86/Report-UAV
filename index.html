@@ -125,6 +125,45 @@
 
         <button class="btn" type="button" id="btnJournalApply">Показати</button>
 
+        <div id="dashboard">
+
+  <div class="dashboard-kpi">
+    <div class="kpi-box">
+      <div class="kpi-label">Вильотів</div>
+      <div class="kpi-value" id="kpiTotal">0</div>
+    </div>
+
+    <div class="kpi-box">
+      <div class="kpi-label">Уражень</div>
+      <div class="kpi-value success" id="kpiHits">0</div>
+    </div>
+
+    <div class="kpi-box">
+      <div class="kpi-label">Втрат</div>
+      <div class="kpi-value danger" id="kpiLoss">0</div>
+    </div>
+
+    <div class="kpi-box">
+      <div class="kpi-label">Ефективність</div>
+      <div class="kpi-value" id="kpiRate">0%</div>
+    </div>
+  </div>
+
+  <div class="dashboard-tabs">
+    <button id="tabStats" class="tab active">Статистика</button>
+    <button id="tabJournal" class="tab">Журнал</button>
+  </div>
+
+  <div id="statsSection">
+    <div id="barsContainer"></div>
+  </div>
+
+  <div id="journalSection" style="display:none;">
+    <!-- сюда переносим journalList -->
+  </div>
+
+</div>
+
         <div class="journal-summary" id="journalSummary"></div>
 
         <label style="margin-top:14px;">

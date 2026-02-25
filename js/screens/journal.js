@@ -108,7 +108,7 @@ function renderForSelectedPeriod() {
 
   if (filtered.length === 0) {
     summaryEl.textContent = "За обраний період звітів не знайдено.";
-    listEl.value = "";
+    listEl.textContent = "";
     return;
   }
 
