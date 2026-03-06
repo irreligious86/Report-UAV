@@ -5,9 +5,10 @@
  */
 
 import { $ } from "./utils.js";
+import { onMapScreenShown } from "./screens/map.js";
 
 /** Known screen ids. Допустимые идентификаторы экранов. */
-const SCREEN_IDS = ["main", "journal", "settings", "help"];
+const SCREEN_IDS = ["main", "journal", "settings", "map", "help"];
 
 /** Current active screen id. Текущий активный экран. */
 let currentScreenId = "main";
@@ -40,13 +41,6 @@ export function initNavigation() {
   menuElement = menuEl;
   menuPanelElement = menuEl.querySelector(".screen-menu-panel");
 
-  const startPress = () => {
-    clearPress();
-    longPressTimer = window.setTimeout(() => {
-      openMenu();
-    }, LONG_PRESS_MS);
-  };
-
   const clearPress = () => {
     if (longPressTimer !== null) {
       clearTimeout(longPressTimer);
@@ -65,9 +59,16 @@ export function initNavigation() {
     clearPress();
   };
 
+  const startPress = () => {
+    clearPress();
+    longPressTimer = window.setTimeout(() => {
+      openMenu();
+    }, LONG_PRESS_MS);
+  };
+
   // Mouse / touch bindings for long-press on title.
   titleEl.addEventListener("mousedown", startPress);
-  titleEl.addEventListener("touchstart", startPress);
+  titleEl.addEventListener("touchstart", startPress, { passive: true });
 
   titleEl.addEventListener("mouseup", clearPress);
   titleEl.addEventListener("mouseleave", clearPress);
@@ -86,21 +87,20 @@ export function initNavigation() {
     const target = ev.target;
     if (!(target instanceof HTMLElement)) return;
 
-    if (target.dataset.screen) {
-      const nextId = target.dataset.screen;
+    const screenBtn = target.closest("[data-screen]");
+    if (screenBtn instanceof HTMLElement && screenBtn.dataset.screen) {
+      const nextId = screenBtn.dataset.screen;
       const isOther = nextId !== currentScreenId;
 
       navigateTo(nextId);
 
       if (isOther && menuPanelElement) {
-        // Restart quick animation on the menu panel.
         menuPanelElement.classList.remove("screen-menu-animating");
         // Force reflow to allow re-adding the class.
         // eslint-disable-next-line no-unused-expressions
         menuPanelElement.offsetWidth;
         menuPanelElement.classList.add("screen-menu-animating");
 
-        // Close menu shortly after animation so эффект встигне відобразитися.
         window.setTimeout(() => {
           closeMenu();
         }, 160);
@@ -132,6 +132,7 @@ export function navigateTo(screenId) {
   for (const id of SCREEN_IDS) {
     const el = $(`screen-${id}`);
     if (!el) continue;
+
     if (id === currentScreenId) el.classList.remove("screenHidden");
     else el.classList.add("screenHidden");
   }
@@ -141,6 +142,7 @@ export function navigateTo(screenId) {
     const items = menuElement.querySelectorAll("[data-screen]");
     items.forEach((btn) => {
       if (!(btn instanceof HTMLElement)) return;
+
       if (btn.dataset.screen === currentScreenId) {
         btn.classList.add("is-active");
       } else {
@@ -150,24 +152,30 @@ export function navigateTo(screenId) {
   }
 
   const titleEl = $("title");
-  if (!titleEl) return;
+  if (titleEl) {
+    switch (currentScreenId) {
+      case "main":
+        titleEl.textContent = "Звіт по БПЛА";
+        break;
+      case "journal":
+        titleEl.textContent = "Журнал та статистика";
+        break;
+      case "settings":
+        titleEl.textContent = "Налаштування списків";
+        break;
+      case "map":
+        titleEl.textContent = "Карта місій";
+        break;
+      case "help":
+        titleEl.textContent = "Довідка та контакти";
+        break;
+      default:
+        titleEl.textContent = "Звіт по БПЛА";
+        break;
+    }
+  }
 
-  switch (currentScreenId) {
-    case "main":
-      titleEl.textContent = "Звіт по БПЛА";
-      break;
-    case "journal":
-      titleEl.textContent = "Журнал та статистика";
-      break;
-    case "settings":
-      titleEl.textContent = "Налаштування списків";
-      break;
-    case "help":
-      titleEl.textContent = "Довідка та контакти";
-      break;
-    default:
-      titleEl.textContent = "Звіт по БПЛА";
-      break;
+  if (currentScreenId === "map") {
+    onMapScreenShown();
   }
 }
-
