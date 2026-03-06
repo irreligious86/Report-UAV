@@ -283,12 +283,15 @@ button:active {
 .screen-menu {
   position: fixed;
   inset: 0;
-  display: none;
-  z-index: 50;
+  z-index: 9999; /* always above map and other content */
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s ease-out;
 }
 
 .screen-menu.is-open {
-  display: block;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .screen-menu-backdrop {
@@ -301,7 +304,8 @@ button:active {
   position: absolute;
   left: 50%;
   bottom: calc(10px + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
+  transform: translateX(-50%) translateY(14px);
+  opacity: 0;
   width: 100%;
   max-width: 420px;
   padding: 10px 10px 12px;
@@ -309,6 +313,12 @@ button:active {
   border-radius: var(--radius);
   background: linear-gradient(180deg, var(--panel1), var(--panel2));
   box-shadow: var(--shadow-card);
+  transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+}
+
+.screen-menu.is-open .screen-menu-panel {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
 }
 
 .screen-menu-title {
