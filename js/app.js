@@ -7,6 +7,7 @@
 import { initMainFormScreen } from "./screens/mainForm.js";
 import { initJournalScreen } from "./screens/journal.js";
 import { initSettingsScreen } from "./screens/settings.js";
+import { initMapScreen } from "./screens/map.js";
 import { initNavigation } from "./navigation.js";
 
 /**
@@ -18,6 +19,7 @@ async function initApp() {
   await initMainFormScreen();
   initJournalScreen();
   await initSettingsScreen();
+  initMapScreen();
   initNavigation();
 }
 
