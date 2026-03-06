@@ -16,13 +16,10 @@ let currentScreenId = "main";
 /** Long-press timer id. Идентификатор таймера долгого нажатия. */
 let longPressTimer = null;
 
-/** Cached menu root element. Корневой елемент меню. */
+/** Cached menu root element. */
 let menuElement = null;
 
-/** Cached menu panel element (for animation). Елемент панелі меню (для анімації). */
-let menuPanelElement = null;
-
-/** Milliseconds required to treat press as long-press. Время в мс для срабатывания долгого нажатия. */
+/** Milliseconds required to treat press as long-press. */
 const LONG_PRESS_MS = 450;
 
 /**
@@ -39,7 +36,6 @@ export function initNavigation() {
   }
 
   menuElement = menuEl;
-  menuPanelElement = menuEl.querySelector(".screen-menu-panel");
 
   const clearPress = () => {
     if (longPressTimer !== null) {
@@ -93,20 +89,7 @@ export function initNavigation() {
       const isOther = nextId !== currentScreenId;
 
       navigateTo(nextId);
-
-      if (isOther && menuPanelElement) {
-        menuPanelElement.classList.remove("screen-menu-animating");
-        // Force reflow to allow re-adding the class.
-        // eslint-disable-next-line no-unused-expressions
-        menuPanelElement.offsetWidth;
-        menuPanelElement.classList.add("screen-menu-animating");
-
-        window.setTimeout(() => {
-          closeMenu();
-        }, 160);
-      } else {
-        closeMenu();
-      }
+      closeMenu();
       return;
     }
 

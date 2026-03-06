@@ -62,7 +62,7 @@ body {
   font-family: ui-sans-serif, system-ui, sans-serif;
   font-size: 18px;
   line-height: 1.25;
-  user-select: none; /* Запрет случайного выделения интерфейса */
+  user-select: none; /* Заборона випадкового виділення інтерфейсу */
 }
 
 /* ========================================================= */
@@ -71,29 +71,26 @@ body {
 
 .wrap {
   min-height: 100%;
+  padding: calc(14px + env(safe-area-inset-top)) 14px calc(14px + env(safe-area-inset-bottom));
   max-width: 520px;
   margin: 0 auto;
-  padding:
-    calc(14px + env(safe-area-inset-top))
-    14px
-    calc(14px + env(safe-area-inset-bottom));
 }
 
 .title {
-  margin: 8px 0 14px;
   color: var(--label);
   font-weight: 800;
   font-size: 22px;
   letter-spacing: 0.5px;
-  text-align: center;
+  margin: 8px 0 14px;
   text-shadow: 0 0 18px rgba(85, 243, 255, 0.18);
+  text-align: center;
 }
 
 .card {
-  padding: 12px;
+  background: linear-gradient(180deg, var(--panel1), var(--panel2));
   border: 1px solid var(--stroke);
   border-radius: var(--radius);
-  background: linear-gradient(180deg, var(--panel1), var(--panel2));
+  padding: 12px;
   box-shadow: var(--shadow-card);
 }
 
@@ -115,14 +112,14 @@ textarea {
   width: 100%;
   margin-top: 6px;
   padding: 12px;
-  border: 1px solid var(--stroke2);
   border-radius: 12px;
-  outline: none;
+  border: 1px solid var(--stroke2);
   background: rgba(0, 0, 0, 0.45);
   color: var(--value);
   font-size: 18px;
+  outline: none;
   box-shadow: var(--shadow-field);
-  user-select: text; /* Разрешаем ввод текста */
+  user-select: text; /* Дозвіл введення тексту */
 }
 
 input:focus,
@@ -133,11 +130,11 @@ textarea:focus {
 }
 
 textarea {
-  min-height: 140px;
-  resize: none;
-  overflow: hidden;
   font-size: 14px;
   font-family: ui-monospace, monospace;
+  resize: none;
+  min-height: 140px;
+  overflow: hidden;
 }
 
 /* ========================================================= */
@@ -155,14 +152,14 @@ textarea {
 }
 
 button {
-  border: 1px solid rgba(85, 243, 255, 0.28);
   border-radius: 12px;
+  border: 1px solid rgba(85, 243, 255, 0.28);
   background: linear-gradient(180deg, rgba(18, 32, 34, 0.95), rgba(10, 15, 16, 0.7));
   color: var(--label);
   font-weight: 700;
   cursor: pointer;
   box-shadow: var(--shadow-btn);
-  transition: transform 0.1s, background 0.15s, color 0.15s, box-shadow 0.15s;
+  transition: transform 0.1s;
 }
 
 button:active {
@@ -215,11 +212,11 @@ button:active {
   margin: 20px auto 10px;
   padding: 16px;
   border-radius: 16px;
-  border-color: rgba(0, 255, 102, 0.4);
-  background: linear-gradient(180deg, rgba(0, 255, 102, 0.15), rgba(0, 0, 0, 0.3));
-  color: var(--value);
   font-size: 20px;
   font-weight: 800;
+  background: linear-gradient(180deg, rgba(0, 255, 102, 0.15), rgba(0, 0, 0, 0.3));
+  border-color: rgba(0, 255, 102, 0.4);
+  color: var(--value);
 }
 
 .is-empty {
@@ -228,10 +225,10 @@ button:active {
 }
 
 .status {
-  margin-top: 10px;
   text-align: center;
   font-size: 13px;
   color: var(--muted);
+  margin-top: 10px;
 }
 
 /* ========================================================= */
@@ -284,14 +281,11 @@ button:active {
   position: fixed;
   inset: 0;
   z-index: 9999; /* always above map and other content */
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.18s ease-out;
+  display: none;
 }
 
 .screen-menu.is-open {
-  opacity: 1;
-  pointer-events: auto;
+  display: block;
 }
 
 .screen-menu-backdrop {
@@ -304,8 +298,7 @@ button:active {
   position: absolute;
   left: 50%;
   bottom: calc(10px + env(safe-area-inset-bottom));
-  transform: translateX(-50%) translateY(14px);
-  opacity: 0;
+  transform: translateX(-50%);
   width: 100%;
   max-width: 420px;
   padding: 10px 10px 12px;
@@ -313,12 +306,6 @@ button:active {
   border-radius: var(--radius);
   background: linear-gradient(180deg, var(--panel1), var(--panel2));
   box-shadow: var(--shadow-card);
-  transition: transform 0.2s ease-out, opacity 0.2s ease-out;
-}
-
-.screen-menu.is-open .screen-menu-panel {
-  transform: translateX(-50%) translateY(0);
-  opacity: 1;
 }
 
 .screen-menu-title {
@@ -351,23 +338,10 @@ button:active {
   color: var(--value);
 }
 
-@keyframes screenMenuFlash {
-  0% {
-    transform: translateX(-50%) translateY(0);
-    box-shadow: var(--shadow-card);
-  }
-  45% {
-    transform: translateX(-50%) translateY(-3px);
-    box-shadow: 0 0 22px rgba(85, 243, 255, 0.45);
-  }
-  100% {
-    transform: translateX(-50%) translateY(0);
-    box-shadow: var(--shadow-card);
-  }
-}
-
-.screen-menu-panel.screen-menu-animating {
-  animation: screenMenuFlash 180ms ease-out;
+/* Map screen: larger map height on all devices */
+#screen-map #map {
+  height: 52vh;
+  min-height: 420px;
 }
 
 /* Make native calendar/time icons visible on dark background */
@@ -677,6 +651,15 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     flex: 1 1 100%;
   }
 
+  /* Главний екран — як у зразку: рядки без переносу, .small фіксовано */
+  #screen-main .row {
+    flex-wrap: nowrap;
+  }
+
+  #screen-main .small {
+    flex: 0 0 140px;
+  }
+
   #listsControls {
     flex-direction: column;
     align-items: stretch;
@@ -688,5 +671,21 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
   .dashboard-kpi {
     grid-template-columns: 1fr 1fr;
+  }
+
+  /* Карта на весь екран по ширині та більша по висоті на смартфонах */
+  #screen-map .card {
+    margin-left: calc(-14px - env(safe-area-inset-left));
+    margin-right: calc(-14px - env(safe-area-inset-right));
+    width: calc(100% + 28px + env(safe-area-inset-left) + env(safe-area-inset-right));
+    max-width: none;
+    border-radius: 0;
+  }
+
+  #screen-map #map {
+    height: 65vh;
+    min-height: 320px;
+    margin-top: 10px;
+    border-radius: 0;
   }
 }
