@@ -20,15 +20,25 @@ function getTodayLocalDate() {
 }
 
 /**
- * Returns default shared period filter.
- * Повертає фільтр періоду за замовчуванням.
+ * Returns default shared period filter: whole current month.
+ * Повертає фільтр періоду за замовчуванням: увесь поточний місяць.
  * @returns {{fromDate:string,toDate:string,fromTime:string,toTime:string}}
  */
 export function getDefaultPeriodFilter() {
-  const today = getTodayLocalDate();
+  const now = new Date();
+  const year = now.getFullYear();
+  const monthIndex = now.getMonth(); // 0-11
+
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const month = pad2(monthIndex + 1);
+
+  const firstDay = "01";
+  const lastDayDate = new Date(year, monthIndex + 1, 0); // day 0 of next month
+  const lastDay = pad2(lastDayDate.getDate());
+
   return {
-    fromDate: today,
-    toDate: today,
+    fromDate: `${year}-${month}-${firstDay}`,
+    toDate: `${year}-${month}-${lastDay}`,
     fromTime: "00:00",
     toTime: "23:59",
   };
@@ -107,4 +117,79 @@ export function isWithinPeriodFilter(value, filter) {
   if (!from || !to) return true;
 
   return dt >= from && dt <= to;
+}
+
+/**
+ * Normalizes date string like "DD.MM.YYYY" or "YYYY-MM-DD" to ISO "YYYY-MM-DD".
+ * Нормалізує дату "ДД.ММ.РРРР" або "РРРР-ММ-ДД" до ISO "РРРР-ММ-ДД".
+ * @param {string} dateStr
+ * @returns {string}
+ */
+export function normalizeDateToISO(dateStr) {
+  const s = String(dateStr || "").trim();
+  if (!s) return "";
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  const m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (!m) return "";
+
+  const dd = String(parseInt(m[1], 10)).padStart(2, "0");
+  const mm = String(parseInt(m[2], 10)).padStart(2, "0");
+  const yyyy = m[3];
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Extracts date and impact time from report text.
+ * Витягує дату та час ураження/втрати з тексту звіту.
+ * @param {string} text
+ * @returns {{date?:string, impactTime?:string}}
+ */
+function extractDateAndImpact(text) {
+  const lines = String(text || "").split("\n");
+  const out = {};
+
+  if (lines[1]) out.date = lines[1].trim();
+
+  for (const line of lines.slice(2)) {
+    const idx = line.indexOf(":");
+    if (idx === -1) continue;
+
+    const key = line.slice(0, idx).trim();
+    const value = line.slice(idx + 1).trim();
+
+    if (key === "Час ураження/втрати") {
+      out.impactTime = value;
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Returns mission impact timestamp (ms) for a saved report, using report text
+ * date + "Час ураження/втрати" or falling back to stored ts.
+ * Повертає мітку часу (мс) завершення місії для звіту.
+ * @param {{ts:string,text:string}} report
+ * @returns {number|null}
+ */
+export function getImpactTimestampForReport(report) {
+  if (!report) return null;
+
+  const parsed = extractDateAndImpact(report.text || "");
+  const iso = normalizeDateToISO(parsed.date || "");
+  const time = String(parsed.impactTime || "").trim();
+
+  if (iso && time) {
+    const dt = combineDateTime(iso, time);
+    if (dt) {
+      const ms = dt.getTime();
+      if (!Number.isNaN(ms)) return ms;
+    }
+  }
+
+  const fb = Date.parse(report.ts);
+  if (Number.isNaN(fb)) return null;
+  return fb;
 }
