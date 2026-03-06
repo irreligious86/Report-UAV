@@ -7,6 +7,7 @@
 import { loadReports } from "../history.js";
 import { $ } from "../utils.js";
 import { toPoint } from "https://esm.sh/mgrs@2.1.0";
+import { loadPeriodFilter, isWithinPeriodFilter, getImpactTimestampForReport } from "../filters.js";
 
 let initialized = false;
 let map = null;
@@ -85,9 +86,16 @@ function renderReportsOnMap() {
   markersLayer.clearLayers();
 
   const statusEl = $("mapStatus");
+  const period = loadPeriodFilter();
   const reports = loadReports();
 
-  if (!reports.length) {
+  const filtered = reports.filter((report) => {
+    const impactMs = getImpactTimestampForReport(report);
+    if (impactMs == null) return false;
+    return isWithinPeriodFilter(impactMs, period);
+  });
+
+  if (!filtered.length) {
     if (statusEl) statusEl.textContent = "У журналі ще немає збережених звітів.";
     map.setView([48.3794, 31.1656], 6);
     return;
@@ -97,7 +105,7 @@ function renderReportsOnMap() {
   let validCount = 0;
   let invalidCount = 0;
 
-  for (const report of reports) {
+  for (const report of filtered) {
     const coordsText = extractCoords(report?.text || "");
     if (!coordsText) {
       invalidCount += 1;
