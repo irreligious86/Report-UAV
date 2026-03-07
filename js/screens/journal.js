@@ -6,6 +6,13 @@
 
 import { $ } from "../utils.js";
 import { loadReports } from "../history.js";
+import {
+  loadPeriodFilter,
+  savePeriodFilter,
+  isWithinPeriodFilter,
+  getImpactTimestampForReport,
+  normalizeDateToISO,
+} from "../filters.js";
 
 let initialized = false;
 
@@ -17,9 +24,17 @@ export function initJournalScreen() {
   if (initialized) return;
   initialized = true;
 
+  // Sync shared period filter into inputs on first load.
+  applySharedFilterToInputs();
+
   // Apply
   const btnApply = $("btnJournalApply");
-  if (btnApply) btnApply.onclick = () => renderForSelectedPeriod();
+  if (btnApply) {
+    btnApply.onclick = () => {
+      saveCurrentInputsToSharedFilter();
+      renderForSelectedPeriod();
+    };
+  }
 
   // Copy summary
   const btnCopy = $("btnCopyJournalSummary");
@@ -62,34 +77,41 @@ export function initJournalScreen() {
     };
   }
 
-  // Default period: current month
-  applyDefaultPeriodCurrentMonth();
-
   // First render
   renderForSelectedPeriod();
 }
 
 /**
- * Default: first day of current month 00:00, last day of current month 23:59
+ * Applies shared period filter into journal inputs.
+ * Підставляє спільний фільтр періоду у поля журналу.
  */
-function applyDefaultPeriodCurrentMonth() {
+function applySharedFilterToInputs() {
+  const period = loadPeriodFilter();
+
   const fromEl = $("journalFrom");
   const toEl = $("journalTo");
   const timeFromEl = $("journalTimeFrom");
   const timeToEl = $("journalTimeTo");
 
-  const pad2 = (n) => String(n).padStart(2, "0");
-  const toISO = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  if (fromEl) fromEl.value = period.fromDate || "";
+  if (toEl) toEl.value = period.toDate || "";
+  if (timeFromEl) timeFromEl.value = period.fromTime || "";
+  if (timeToEl) timeToEl.value = period.toTime || "";
+}
 
-  const now = new Date();
-  const first = new Date(now.getFullYear(), now.getMonth(), 1);
-  const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+/**
+ * Reads current journal inputs and saves them into shared period filter.
+ * Зчитує значення полів журналу та зберігає у спільний фільтр.
+ */
+function saveCurrentInputsToSharedFilter() {
+  const payload = {
+    fromDate: ($("journalFrom")?.value || "").trim(),
+    toDate: ($("journalTo")?.value || "").trim(),
+    fromTime: ($("journalTimeFrom")?.value || "").trim(),
+    toTime: ($("journalTimeTo")?.value || "").trim(),
+  };
 
-  if (fromEl && !fromEl.value) fromEl.value = toISO(first);
-  if (toEl && !toEl.value) toEl.value = toISO(last);
-
-  if (timeFromEl && !timeFromEl.value) timeFromEl.value = "00:00";
-  if (timeToEl && !timeToEl.value) timeToEl.value = "23:59";
+  savePeriodFilter(payload);
 }
 
 /**
@@ -144,29 +166,25 @@ function parseReportText(text) {
  * Будує журнал (картками) та статистику за обраний період.
  */
 function renderForSelectedPeriod() {
-  const fromIso = (($("journalFrom")?.value) || "").trim();
-  const toIso = (($("journalTo")?.value) || "").trim();
-  const fromTimeStr = (($("journalTimeFrom")?.value) || "").trim();
-  const toTimeStr = (($("journalTimeTo")?.value) || "").trim();
+  const period = loadPeriodFilter();
+  const fromIso = period.fromDate || "";
+  const toIso = period.toDate || "";
+  const fromTimeStr = period.fromTime || "";
+  const toTimeStr = period.toTime || "";
 
   const summaryEl = $("journalSummary");
   const cardsEl = $("journalCards"); // NEW container
   if (!summaryEl || !cardsEl) return;
-
-  const fromMs = buildBoundaryTimestamp(fromIso, fromTimeStr, true);
-  const toMs = buildBoundaryTimestamp(toIso, toTimeStr, false);
 
   const searchStr = (($("journalSearch")?.value) || "").trim().toLowerCase();
 
   const reports = loadReports();
 
   const filtered = reports.filter((r) => {
-    const parsed = parseReportText(r.text);
-    const impactMs = buildImpactTimestamp(parsed, r.ts);
+    const impactMs = getImpactTimestampForReport(r);
     if (impactMs == null) return false;
 
-    if (!Number.isNaN(fromMs) && impactMs < fromMs) return false;
-    if (!Number.isNaN(toMs) && impactMs > toMs) return false;
+    if (!isWithinPeriodFilter(impactMs, period)) return false;
 
     if (searchStr) {
       const hay = (r.text || "").toLowerCase();
@@ -176,12 +194,10 @@ function renderForSelectedPeriod() {
     return true;
   });
 
-    // Newest first (by mission end time)
+  // Newest first (by mission end time)
   filtered.sort((a, b) => {
-    const pa = parseReportText(a.text);
-    const pb = parseReportText(b.text);
-    const ta = buildImpactTimestamp(pa, a.ts) ?? 0;
-    const tb = buildImpactTimestamp(pb, b.ts) ?? 0;
+    const ta = getImpactTimestampForReport(a) ?? 0;
+    const tb = getImpactTimestampForReport(b) ?? 0;
     return tb - ta;
   });
 
@@ -213,7 +229,7 @@ function renderForSelectedPeriod() {
     const parsed = parseReportText(item.text);
 
     const datePart =
-      normalizeDateForHeader(parsed.date) ||
+      normalizeDateToISO(parsed.date || "") ||
       String(item.ts || "").slice(0, 10) ||
       (parsed.date || "");
 
@@ -360,65 +376,6 @@ function normalizeDateForHeader(dateStr) {
   const mm = String(parseInt(m[2], 10)).padStart(2, "0");
   const yyyy = m[3];
   return `${yyyy}-${mm}-${dd}`;
-}
-
-/**
- * Builds timestamp (ms) from report's date and impact time, or falls back to stored ts.
- * @param {{date?: string, impactTime?: string}} parsed
- * @param {string} fallbackTs
- * @returns {number|null}
- */
-function buildImpactTimestamp(parsed, fallbackTs) {
-  // Prefer parsed DD.MM.YYYY + HH:MM
-  const iso = normalizeDateForHeader(parsed?.date || "");
-  const time = (parsed?.impactTime || "").trim();
-
-  if (iso && time) {
-    const base = Date.parse(iso); // local midnight
-    if (!Number.isNaN(base)) {
-      const parts = time.split(":");
-      const hour = parseInt(parts[0] || "0", 10);
-      const minute = parseInt(parts[1] || "0", 10);
-      const d = new Date(base);
-      d.setHours(hour || 0, minute || 0, 0, 0);
-      const ms = d.getTime();
-      if (!Number.isNaN(ms)) return ms;
-    }
-  }
-
-  const fb = Date.parse(fallbackTs);
-  if (Number.isNaN(fb)) return null;
-  return fb;
-}
-
-/**
- * Builds boundary timestamp from date+time inputs.
- * @param {string} isoDate - "YYYY-MM-DD" or "".
- * @param {string} timeStr - "HH:MM" or "".
- * @param {boolean} isStart - true for start (from), false for end (to).
- * @returns {number} ms or NaN if date is not provided.
- */
-function buildBoundaryTimestamp(isoDate, timeStr, isStart) {
-  if (!isoDate) return NaN;
-
-  const base = Date.parse(isoDate);
-  if (Number.isNaN(base)) return NaN;
-
-  if (!timeStr) {
-    return isStart ? base : base + 24 * 60 * 60 * 1000 - 1;
-  }
-
-  const parts = timeStr.split(":");
-  const hour = parseInt(parts[0] || "0", 10);
-  const minute = parseInt(parts[1] || "0", 10);
-
-  const d = new Date(base);
-  d.setHours(hour || 0, minute || 0, isStart ? 0 : 59, isStart ? 0 : 999);
-  const ms = d.getTime();
-  if (Number.isNaN(ms)) {
-    return isStart ? base : base + 24 * 60 * 60 * 1000 - 1;
-  }
-  return ms;
 }
 
 /**
