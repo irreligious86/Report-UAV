@@ -162,20 +162,21 @@ readonly></textarea>
 
 <label>
 Період:
+  <div class="journal-period-block">
+    <div class="row">
+      <input type="date" id="journalFrom"/>
+      <input type="date" id="journalTo"/>
+    </div>
 
-<div class="row">
-<input type="date" id="journalFrom"/>
-<input type="date" id="journalTo"/>
-</div>
+    <div class="row" style="margin-top:10px;">
+      <input type="time" id="journalTimeFrom"/>
+      <input type="time" id="journalTimeTo"/>
+    </div>
+  </div>
 </label>
 
 <label>
 Час завершення (за «Час ураження/втрати»):
-
-<div class="row">
-<input type="time" id="journalTimeFrom"/>
-<input type="time" id="journalTimeTo"/>
-</div>
 </label>
 
 <button class="btn btn-apply" type="button" id="btnJournalApply">
