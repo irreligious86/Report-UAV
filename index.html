@@ -420,6 +420,43 @@ data-screen-menu-close
 </div>
 </div>
 
+<!-- Map overlays: mission group list and single report viewer -->
+<div class="map-overlay screenHidden" id="mapGroupOverlay" aria-hidden="true">
+  <div class="map-overlay-backdrop" data-map-overlay-close="group"></div>
+  <div class="map-overlay-panel">
+    <div class="map-overlay-header">
+      <div class="map-overlay-title" id="mapGroupTitle">Місії у точці</div>
+      <button class="map-overlay-close" type="button" id="mapGroupCloseBtn">✕</button>
+    </div>
+
+    <div class="map-overlay-subtitle" id="mapGroupSubtitle"></div>
+
+    <div class="map-mission-list" id="mapMissionList"></div>
+  </div>
+</div>
+
+<div class="map-overlay screenHidden" id="mapReportOverlay" aria-hidden="true">
+  <div class="map-overlay-backdrop" data-map-overlay-close="report"></div>
+  <div class="map-overlay-panel map-report-panel">
+    <div class="map-overlay-header">
+      <button class="map-overlay-back" type="button" id="mapReportBackBtn">← Назад</button>
+      <button class="map-overlay-close" type="button" id="mapReportCloseBtn">✕</button>
+    </div>
+
+    <div class="map-overlay-title map-report-title" id="mapReportTitle">Звіт місії</div>
+    <div class="map-overlay-subtitle map-report-subtitle" id="mapReportSubtitle"></div>
+
+    <div class="map-report-actions">
+      <button class="btn" type="button" id="mapReportCopyBtn">Копіювати</button>
+      <button class="btn" type="button" id="mapReportShareBtn">Поділитися</button>
+    </div>
+
+    <div class="map-report-content-wrap">
+      <div class="map-report-content" id="mapReportContent"></div>
+    </div>
+  </div>
+</div>
+
 </div>
 
 <script
