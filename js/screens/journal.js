@@ -13,6 +13,7 @@ import {
   getImpactTimestampForReport,
   normalizeDateToISO,
 } from "../filters.js";
+import { mapResultToCategory, RESULT_CATEGORIES } from "../result-mapping.js";
 
 let initialized = false;
 
@@ -218,7 +219,7 @@ function renderForSelectedPeriod() {
     results: new Map(),
   };
 
-  // KPI simple heuristic (temporary): count "Ураження" vs "Втрата" by substring
+  // KPI: count normalized hits vs losses
   let hits = 0;
   let loss = 0;
 
@@ -242,11 +243,11 @@ function renderForSelectedPeriod() {
     if (parsed.ammo) inc(counts.ammo, parsed.ammo);
     if (parsed.missionType) inc(counts.missionTypes, parsed.missionType);
     if (parsed.result) {
-      inc(counts.results, parsed.result);
+      const category = mapResultToCategory(parsed.result);
+      inc(counts.results, category);
 
-      const r = parsed.result.toLowerCase();
-      if (r.includes("уражен")) hits += 1;
-      if (r.includes("втрата")) loss += 1;
+      if (category === RESULT_CATEGORIES.HIT) hits += 1;
+      if (category === RESULT_CATEGORIES.LOSS) loss += 1;
     }
 
     // Card DOM
