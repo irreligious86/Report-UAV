@@ -838,86 +838,199 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   line-height: 1.35;
 }
 
+/* ===========================
+   MAP MARKERS
+   1 / 2-3 / 4-5 / 6+
+   =========================== */
+
 .map-marker-wrapper {
   background: transparent;
   border: 0;
 }
 
+/* --- Single mission: no number --- */
+.map-marker-dot {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+
+  background:
+    radial-gradient(circle at 30% 28%,
+      #f2ffff 0%,
+      #9ffcff 24%,
+      #47efff 48%,
+      #00a8b5 70%,
+      #005e66 100%);
+
+  border: 2px solid rgba(220, 255, 255, 0.96);
+
+  box-shadow:
+    0 0 0 2px rgba(0, 0, 0, 0.48),
+    0 0 0 5px rgba(85, 243, 255, 0.10),
+    0 0 22px rgba(85, 243, 255, 0.38),
+    0 12px 24px rgba(0, 0, 0, 0.62),
+    inset 0 2px 3px rgba(255, 255, 255, 0.52),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.26);
+}
+
+.map-marker-dot::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.map-marker-dot::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 999px;
+  border: 1px solid rgba(85, 243, 255, 0.20);
+  pointer-events: none;
+}
+
+/* --- Shared badge base for 2+ missions --- */
 .map-marker-badge {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: radial-gradient(circle at 30% 30%, rgba(24, 36, 38, 0.98), rgba(8, 12, 14, 0.98));
   font-weight: 800;
   line-height: 1;
   user-select: none;
   box-sizing: border-box;
-  text-shadow: 0 0 8px rgba(0, 0, 0, 0.45);
+
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 10px rgba(0, 0, 0, 0.4);
+
+  background:
+    radial-gradient(circle at 30% 28%,
+      rgba(40, 58, 60, 0.98),
+      rgba(8, 12, 14, 0.98));
+
   box-shadow:
-    0 0 0 2px rgba(0, 0, 0, 0.42),
-    0 8px 18px rgba(0, 0, 0, 0.55);
+    0 0 0 2px rgba(0, 0, 0, 0.46),
+    0 14px 26px rgba(0, 0, 0, 0.64),
+    inset 0 2px 3px rgba(255, 255, 255, 0.12),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.20);
 }
 
-/* Single mission marker */
-.map-marker-badge.is-single {
-  border: 2px solid rgba(85, 243, 255, 0.9);
-  color: var(--label);
-  font-size: 13px;
-  box-shadow:
-    0 0 0 2px rgba(0, 0, 0, 0.42),
-    0 0 14px rgba(85, 243, 255, 0.16),
-    0 8px 18px rgba(0, 0, 0, 0.55);
-}
-
-/* 2-4 missions */
-.map-marker-badge.is-multi {
-  border: 2px solid rgba(0, 255, 102, 0.95);
-  color: var(--value);
-  font-size: 14px;
-  box-shadow:
-    0 0 0 2px rgba(0, 0, 0, 0.42),
-    0 0 0 4px rgba(0, 255, 102, 0.18),
-    0 0 18px rgba(0, 255, 102, 0.22),
-    0 8px 18px rgba(0, 0, 0, 0.55);
-}
-
-/* 5+ missions */
-.map-marker-badge.is-heavy {
-  border: 2px solid rgba(0, 255, 102, 1);
-  color: #ffffff;
-  font-size: 15px;
-  box-shadow:
-    0 0 0 2px rgba(0, 0, 0, 0.42),
-    0 0 0 5px rgba(0, 255, 102, 0.22),
-    0 0 24px rgba(0, 255, 102, 0.35),
-    0 10px 22px rgba(0, 0, 0, 0.6);
-}
-
-/* --- Single mission simple dot --- */
-.map-marker-dot {
-  width: 16px;
-  height: 16px;
+.map-marker-badge::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 7px;
+  width: 18%;
+  height: 18%;
+  min-width: 5px;
+  min-height: 5px;
   border-radius: 999px;
-  background: radial-gradient(circle at 35% 35%, #0ff, #007c86);
-  border: 2px solid rgba(85, 243, 255, 0.9);
-  box-shadow:
-    0 0 0 2px rgba(0, 0, 0, 0.45),
-    0 0 10px rgba(85, 243, 255, 0.25),
-    0 6px 14px rgba(0, 0, 0, 0.5);
+  background: rgba(255, 255, 255, 0.22);
 }
 
-/* --- Single mission report viewer / Центрований перегляд однієї доповіді --- */
+.map-marker-badge::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+/* --- 2-3 missions: low activity --- */
+.map-marker-badge.is-low {
+  border: 2px solid rgba(0, 255, 102, 0.96);
+  color: #79ffb0;
+  font-size: 14px;
+
+  box-shadow:
+    0 0 0 2px rgba(0, 0, 0, 0.46),
+    0 0 0 4px rgba(0, 255, 102, 0.14),
+    0 0 18px rgba(0, 255, 102, 0.20),
+    0 14px 26px rgba(0, 0, 0, 0.64),
+    inset 0 2px 3px rgba(255, 255, 255, 0.12),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.20);
+}
+
+.map-marker-badge.is-low::after {
+  border: 1px solid rgba(0, 255, 102, 0.16);
+}
+
+/* --- 4-5 missions: medium activity --- */
+.map-marker-badge.is-medium {
+  border: 2px solid rgba(187, 255, 0, 0.98);
+  color: #eaff9a;
+  font-size: 15px;
+
+  box-shadow:
+    0 0 0 2px rgba(0, 0, 0, 0.46),
+    0 0 0 5px rgba(187, 255, 0, 0.16),
+    0 0 22px rgba(187, 255, 0, 0.24),
+    0 16px 28px rgba(0, 0, 0, 0.66),
+    inset 0 2px 3px rgba(255, 255, 255, 0.12),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.20);
+}
+
+.map-marker-badge.is-medium::after {
+  border: 1px solid rgba(187, 255, 0, 0.18);
+}
+
+/* --- 6+ missions: high activity --- */
+.map-marker-badge.is-high {
+  border: 2px solid rgba(255, 174, 0, 1);
+  color: #fff4cf;
+  font-size: 16px;
+
+  box-shadow:
+    0 0 0 2px rgba(0, 0, 0, 0.48),
+    0 0 0 6px rgba(255, 174, 0, 0.18),
+    0 0 26px rgba(255, 174, 0, 0.32),
+    0 18px 30px rgba(0, 0, 0, 0.68),
+    inset 0 2px 3px rgba(255, 255, 255, 0.14),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.22);
+}
+
+.map-marker-badge.is-high::after {
+  border: 1px solid rgba(255, 174, 0, 0.20);
+}
+
+/* --- Report overlay: hard-centered layout --- */
+#mapReportOverlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding:
+    calc(8px + env(safe-area-inset-top))
+    max(8px, env(safe-area-inset-right))
+    calc(8px + env(safe-area-inset-bottom))
+    max(8px, env(safe-area-inset-left));
+}
+
+#mapReportOverlay.screenHidden {
+  display: none;
+}
+
 .map-report-panel {
+  position: relative;
   inset: auto;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  transform: none;
   width: min(92vw, 760px);
-  max-height: min(84vh, 900px);
-  border-radius: 20px;
-  background: linear-gradient(180deg, rgba(10, 15, 16, 0.82), rgba(10, 15, 16, 0.68));
-  backdrop-filter: blur(6px);
+  max-width: 760px;
+  max-height: min(88vh, 900px);
+  margin: 0;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(10, 15, 16, 0.88), rgba(10, 15, 16, 0.74));
+  backdrop-filter: blur(8px);
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.52),
+    0 0 0 1px rgba(85, 243, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .map-report-title {
@@ -929,6 +1042,18 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .map-report-subtitle {
   text-align: center;
   font-size: 14px;
+}
+
+.map-report-actions {
+  display: flex;
+  gap: 10px;
+  padding: 10px 14px 0;
+  justify-content: center;
+}
+
+.map-report-actions .btn {
+  flex: 1 1 0;
+  max-width: 220px;
 }
 
 .map-report-content-wrap {
@@ -944,11 +1069,12 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   min-height: 180px;
   padding: 18px 18px 20px;
   border-radius: 18px;
-  border: 1px solid rgba(85, 243, 255, 0.16);
-  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(85, 243, 255, 0.18);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.36), rgba(0, 0, 0, 0.24));
   box-shadow:
     inset 0 0 0 1px rgba(0, 255, 102, 0.08),
-    0 10px 26px rgba(0, 0, 0, 0.32);
+    inset 0 8px 18px rgba(255, 255, 255, 0.015),
+    0 14px 30px rgba(0, 0, 0, 0.34);
   white-space: pre-wrap;
   color: var(--value);
   font-size: 16px;
@@ -956,49 +1082,40 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   font-family: ui-monospace, monospace;
 }
 
-.map-report-actions {
-  display: flex;
-  gap: 10px;
-  padding: 10px 14px 0;
-  justify-content: center;
-}
-
-.map-report-actions .btn {
-  flex: 1 1 0;
-  max-width: 220px;
-}
-
-@media (max-width: 520px) {
-  .map-overlay-panel {
-    inset: calc(6px + env(safe-area-inset-top)) 6px calc(6px + env(safe-area-inset-bottom)) 6px;
-  }
-
-  .map-overlay-title {
-    font-size: 17px;
-  }
-
-  .map-report-content {
-    font-size: 13px;
-  }
-}
-
 @media (max-width: 640px) {
+  #mapReportOverlay {
+    padding:
+      calc(6px + env(safe-area-inset-top))
+      max(6px, env(safe-area-inset-right))
+      calc(6px + env(safe-area-inset-bottom))
+      max(6px, env(safe-area-inset-left));
+  }
+
   .map-report-panel {
     width: min(96vw, 760px);
-    max-height: min(88vh, 900px);
-    border-radius: 16px;
-  }
-
-  .map-report-actions {
-    padding: 10px 10px 0;
+    max-width: none;
+    max-height: 90vh;
+    border-radius: 14px;
   }
 
   .map-report-title {
     font-size: 18px;
+    padding-top: 10px;
   }
 
   .map-report-subtitle {
     font-size: 13px;
+  }
+
+  .map-report-actions {
+    padding: 8px 10px 0;
+    gap: 8px;
+  }
+
+  .map-report-actions .btn {
+    min-height: 42px;
+    font-size: 14px;
+    padding: 10px 12px;
   }
 
   .map-report-content-wrap {
@@ -1010,7 +1127,29 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     padding: 14px 14px 16px;
     font-size: 15px;
     line-height: 1.55;
-    border-radius: 14px;
+    border-radius: 12px;
+  }
+}
+
+@media (max-width: 420px) {
+  #mapReportOverlay {
+    padding:
+      calc(4px + env(safe-area-inset-top))
+      max(4px, env(safe-area-inset-right))
+      calc(4px + env(safe-area-inset-bottom))
+      max(4px, env(safe-area-inset-left));
+  }
+
+  .map-report-panel {
+    width: 100%;
+    max-height: 92vh;
+    border-radius: 12px;
+  }
+
+  .map-report-content {
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 12px 12px 14px;
   }
 }
 
