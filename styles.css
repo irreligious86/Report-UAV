@@ -1153,6 +1153,10 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   }
 }
 
+#journalTransferStatus {
+  margin-top: 10px;
+}
+
   .journal-period-block .row {
     grid-template-columns: 1fr 1fr;
     gap: 10px;

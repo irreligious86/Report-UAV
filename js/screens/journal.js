@@ -14,6 +14,10 @@ import {
   normalizeDateToISO,
 } from "../filters.js";
 import { mapResultToCategory, RESULT_CATEGORIES } from "../result-mapping.js";
+import {
+  exportEncryptedReports,
+  importEncryptedReports,
+} from "../crypto/importExport.js";
 
 let initialized = false;
 
@@ -80,6 +84,30 @@ export function initJournalScreen() {
 
   // First render
   renderForSelectedPeriod();
+
+  // Encrypted export/import
+  const btnExport = $("btnExportEncrypted");
+  if (btnExport) {
+    btnExport.onclick = async () => {
+      await handleExportEncrypted();
+    };
+  }
+
+  const btnImport = $("btnImportEncrypted");
+  const importInput = $("importEncryptedFile");
+  if (btnImport && importInput instanceof HTMLInputElement) {
+    btnImport.onclick = () => {
+      importInput.value = "";
+      importInput.click();
+    };
+
+    importInput.addEventListener("change", async () => {
+      const file = importInput.files && importInput.files[0];
+      if (!file) return;
+      await handleImportEncrypted(file);
+      importInput.value = "";
+    });
+  }
 }
 
 /**
@@ -336,6 +364,107 @@ function renderForSelectedPeriod() {
 }
 
 /**
+ * Sets transfer status message for export/import operations.
+ * @param {string} message
+ * @param {boolean} isError
+ */
+function setTransferStatus(message, isError = false) {
+  const el = $("journalTransferStatus");
+  if (!el) return;
+  el.textContent = message || "";
+  el.style.color = isError ? "var(--danger)" : "";
+}
+
+/**
+ * Prompts user for encryption key.
+ * @param {string} title
+ * @returns {string|null}
+ */
+function promptForKey(title) {
+  const value = window.prompt(title, "");
+  if (value == null) return null;
+  const key = value.trim();
+  if (!key) {
+    throw new Error("Ключ шифрування порожній.");
+  }
+  return key;
+}
+
+/**
+ * Converts unknown error into readable message.
+ * @param {unknown} error
+ * @returns {string}
+ */
+function getErrorMessage(error) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return "Сталася невідома помилка.";
+}
+
+/**
+ * Handles encrypted reports export.
+ * Uses a double-entry prompt for key confirmation.
+ * @returns {Promise<void>}
+ */
+async function handleExportEncrypted() {
+  try {
+    setTransferStatus("Підготовка експорту...");
+
+    const key1 = promptForKey("Введи ключ шифрування для експорту");
+    if (key1 == null) {
+      setTransferStatus("Експорт скасовано.");
+      return;
+    }
+
+    const key2 = promptForKey("Повтори ключ шифрування");
+    if (key2 == null) {
+      setTransferStatus("Експорт скасовано.");
+      return;
+    }
+
+    if (key1 !== key2) {
+      throw new Error("Ключі не співпадають.");
+    }
+
+    const result = await exportEncryptedReports(key1);
+    setTransferStatus(
+      `Експорт завершено. Файл: ${result.fileName}. Записів: ${result.count}.`
+    );
+  } catch (error) {
+    setTransferStatus(getErrorMessage(error), true);
+  }
+}
+
+/**
+ * Handles encrypted reports import from selected file and merges into history.
+ * @param {File} file
+ * @returns {Promise<void>}
+ */
+async function handleImportEncrypted(file) {
+  try {
+    setTransferStatus(`Імпорт файлу "${file.name}"...`);
+
+    const key = promptForKey("Введи ключ для розшифрування файлу");
+    if (key == null) {
+      setTransferStatus("Імпорт скасовано.");
+      return;
+    }
+
+    const result = await importEncryptedReports(file, key);
+
+    setTransferStatus(
+      `Імпорт завершено. Було: ${result.before}, у файлі: ${result.imported}, додано: ${result.added}, стало: ${result.after}.`
+    );
+
+    // Refresh view with updated reports
+    renderForSelectedPeriod();
+  } catch (error) {
+    setTransferStatus(getErrorMessage(error), true);
+  }
+}
+
+/**
  * Helper to increment value in Map.
  * @param {Map<string, number>} map
  * @param {string} key
@@ -359,24 +488,6 @@ function updateKPI(total, hits, loss) {
 
   const rate = total ? Math.round((hits / total) * 100) : 0;
   if (kRate) kRate.textContent = `${rate}%`;
-}
-
-/**
- * Normalize "DD.MM.YYYY" -> "YYYY-MM-DD" for header if possible.
- */
-function normalizeDateForHeader(dateStr) {
-  const s = (dateStr || "").trim();
-  if (!s) return "";
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-
-  const m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-  if (!m) return "";
-
-  const dd = String(parseInt(m[1], 10)).padStart(2, "0");
-  const mm = String(parseInt(m[2], 10)).padStart(2, "0");
-  const yyyy = m[3];
-  return `${yyyy}-${mm}-${dd}`;
 }
 
 /**

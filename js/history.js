@@ -13,20 +13,31 @@ import { STORAGE_KEY_REPORTS, REPORTS_LIMIT } from "./constants.js";
  */
 export function loadReports() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY_REPORTS)) || [];
+    const value = JSON.parse(localStorage.getItem(STORAGE_KEY_REPORTS)) || [];
+    return Array.isArray(value) ? value : [];
   } catch {
     return [];
   }
 }
 
 /**
+ * Saves full reports array to localStorage and trims it to REPORTS_LIMIT.
+ * Зберігає весь масив звітів у localStorage з обмеженням REPORTS_LIMIT.
+ * @param {Array<{ ts: string, text: string }>} reports
+ */
+export function saveReports(reports) {
+  const arr = Array.isArray(reports) ? reports : [];
+  const trimmed = arr.slice(-REPORTS_LIMIT);
+  localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(trimmed));
+}
+
+/**
  * Appends a report to history, keeps only last REPORTS_LIMIT entries.
- * Добавляет отчёт в историю, хранит только последние REPORTS_LIMIT записей.
- * @param {{ ts: string, text: string }} report - Report object (timestamp, text). Объект отчёта (время, текст).
+ * Додає звіт в історію, зберігає лише останні REPORTS_LIMIT записів.
+ * @param {{ ts: string, text: string }} report - Report object (timestamp, text). Об'єкт звіту (час, текст).
  */
 export function addReport(report) {
   const arr = loadReports();
   arr.push(report);
-  if (arr.length > REPORTS_LIMIT) arr.shift();
-  localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(arr));
+  saveReports(arr);
 }

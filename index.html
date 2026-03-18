@@ -183,6 +183,24 @@ readonly></textarea>
 Показати
 </button>
 
+<div class="row" style="margin-top:12px;">
+  <button class="btn" type="button" id="btnExportEncrypted">
+    Export encrypted JSON
+  </button>
+  <button class="btn" type="button" id="btnImportEncrypted">
+    Import encrypted JSON
+  </button>
+</div>
+
+<input
+  type="file"
+  id="importEncryptedFile"
+  accept=".json,application/json"
+  style="display:none;"
+/>
+
+<div class="status" id="journalTransferStatus"></div>
+
 <div id="dashboard">
 
 <div class="dashboard-kpi">
