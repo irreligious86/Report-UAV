@@ -19,9 +19,8 @@ let activeReport = null;
 function createMarkerIcon(count) {
   const safeCount = Number.isFinite(count) && count > 0 ? count : 1;
 
-  // Single mission: simple glowing dot without number.
   if (safeCount === 1) {
-    const size = 16;
+    const size = 22;
 
     return window.L.divIcon({
       className: "map-marker-wrapper",
@@ -32,13 +31,15 @@ function createMarkerIcon(count) {
     });
   }
 
-  // Multiple missions: badge with count, size depends on how “hot” the point is.
-  let size = 36;
-  let variantClass = "is-multi";
+  let size = 34;
+  let variantClass = "is-low";
 
-  if (safeCount >= 5) {
-    size = 42;
-    variantClass = "is-heavy";
+  if (safeCount >= 4 && safeCount <= 5) {
+    size = 40;
+    variantClass = "is-medium";
+  } else if (safeCount >= 6) {
+    size = 46;
+    variantClass = "is-high";
   }
 
   return window.L.divIcon({
