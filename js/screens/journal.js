@@ -437,7 +437,7 @@ async function handleExportEncrypted() {
 }
 
 /**
- * Handles encrypted reports import from selected file and merges into localStorage.
+ * Handles encrypted reports import from selected file and merges into history.
  * @param {File} file
  * @returns {Promise<void>}
  */
@@ -488,24 +488,6 @@ function updateKPI(total, hits, loss) {
 
   const rate = total ? Math.round((hits / total) * 100) : 0;
   if (kRate) kRate.textContent = `${rate}%`;
-}
-
-/**
- * Normalize "DD.MM.YYYY" -> "YYYY-MM-DD" for header if possible.
- */
-function normalizeDateForHeader(dateStr) {
-  const s = (dateStr || "").trim();
-  if (!s) return "";
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-
-  const m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-  if (!m) return "";
-
-  const dd = String(parseInt(m[1], 10)).padStart(2, "0");
-  const mm = String(parseInt(m[2], 10)).padStart(2, "0");
-  const yyyy = m[3];
-  return `${yyyy}-${mm}-${dd}`;
 }
 
 /**

@@ -1,12 +1,12 @@
 /**
  * Encrypted reports import/export helpers.
- * Reads reports from localStorage, encrypts them into a downloadable file,
- * and imports encrypted files back into localStorage.
+ * Reads reports via history.js, encrypts them into a downloadable file,
+ * and imports encrypted files back through the same storage layer.
  * @module crypto/importExport
  */
 
-import { loadReports } from "../history.js";
-import { STORAGE_KEY_REPORTS, REPORTS_LIMIT } from "../constants.js";
+import { loadReports, saveReports } from "../history.js";
+import { REPORTS_LIMIT } from "../constants.js";
 import { encryptJSON, decryptJSON } from "./crypto.js";
 
 const EXPORT_FILE_NAME = "uav_reports.enc.json";
@@ -100,14 +100,6 @@ function mergeReports(currentReports, importedReports) {
   }
 
   return merged;
-}
-
-/**
- * Saves reports array directly to localStorage.
- * @param {Array<{ ts: string, text: string }>} reports
- */
-function saveReports(reports) {
-  localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(reports));
 }
 
 /**
