@@ -29,6 +29,7 @@ export function saveReports(reports) {
   const arr = Array.isArray(reports) ? reports : [];
   const trimmed = arr.slice(-REPORTS_LIMIT);
   localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(trimmed));
+  window.dispatchEvent(new Event("reportsUpdated"));
 }
 
 /**

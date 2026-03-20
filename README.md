@@ -1,281 +1,233 @@
-# Report UAV
+# Report UAV / Звіт БПЛА
 
-**Report UAV** is a lightweight single-page web application for creating structured UAV (drone) mission reports directly in the browser.  
-It is optimized for fast field reporting on mobile devices, works offline after the first load, and keeps all data on the user’s device.
+**Report UAV** — lightweight single-page web application for creating structured UAV mission reports in the browser.
+Designed for fast field reporting from mobile devices. Works offline, keeps all data on the user's device.
 
----
-
-**Звіт БПЛА** — це легка односторінкова веб-програма для створення структурованих звітів місій БПЛА прямо в браузері.  
-Вона розрахована на швидке польове звітування з мобільних пристроїв, працює офлайн після першого завантаження та зберігає всі дані локально на пристрої користувача.
+**Звіт БПЛА** — легкий односторінковий веб-додаток для формування структурованих звітів місій БПЛА прямо в браузері.
+Розрахований на швидке польове звітування з телефону чи планшета. Працює офлайн, усі дані зберігаються лише на пристрої.
 
 ---
 
-## Features
+## Features / Можливості
 
-- **Structured mission reports**  
-  Create UAV mission reports using a form with: crew, crew counter, date, drone type, mission type, takeoff time, impact/loss time, MGRS-style coordinates (prefix + easting + northing), ammo, stream, and result.
-
-- **Mobile-first & PWA-friendly**  
-  Layout is tuned for phones and tablets, large tap targets, and use as a Progressive Web App (PWA).
-
-- **Offline-ready**  
-  A Service Worker caches static assets (`sw.js`), so after the first HTTP load the app can be used without network connectivity.
-
-- **Local-only data**  
-  There is no backend or external API.  
-  Configuration comes from `config.json`, while report history, crew counter and user list overrides are stored only in `localStorage`.
-
-- **Configurable lists without touching code**  
-  Base lists (drones, mission types, ammo, results, MGRS prefixes) live in `config.json`.  
-  A dedicated “Settings” screen lets the user override these lists locally (plus manage streams) without editing files on disk.
-
-- **Multi-screen navigation via long-press**  
-  Long-press the top header to open a screen menu with:
-  - Main form (report form),
-  - Journal & statistics,
-  - Settings (lists),
-  - Help & contacts.  
-  The currently active screen is highlighted in the menu.
-
-- **Copy to clipboard (and optional Android integration)**  
-  Each generated report is written into the “output” area and copied to the clipboard.  
-  In environments exposing `AndroidBridge`, sharing can be integrated additionally.
-
-- **Crew counter**  
-  Optional numeric counter (1–25) tied to the crew, stored between sessions.  
-  After pressing “Done”, the counter can be automatically incremented for the next sortie.
-
-- **Empty-field highlighting**  
-  Important fields are automatically marked with a red border and glow when left empty, reducing the chance of missing required information.
+| Feature | Description |
+|---|---|
+| **Structured reports** | Form: crew, counter, date, drone, mission type, takeoff time, impact/loss time, MGRS coordinates, ammo, stream, result |
+| **Journal & statistics** | Period filter, KPI dashboard (sorties, hits, losses, efficiency), tabs, search, cards with Copy / Share |
+| **Interactive map** | Mission markers grouped by MGRS coordinate; dot for single missions, badge with count for groups; two-level overlay viewer |
+| **Encrypted export / import** | AES-256-GCM + PBKDF2 encrypted JSON file; deduplicated merge on import; portable between devices |
+| **Result normalization** | Raw result strings mapped to standard categories for accurate statistics |
+| **Mobile-first & PWA** | Responsive dark theme, large tap targets, installable as a home screen app |
+| **Offline-ready** | Service Worker caches all assets — works without network after first load |
+| **Local-only storage** | No backend, no telemetry. History, counter, settings live only in browser localStorage |
+| **Configurable lists** | Drones, mission types, ammo, results, MGRS prefixes, streams — all editable in Settings |
+| **Long-press navigation** | Long-press the header to open screen menu |
+| **Crew counter** | Numeric 1–25, auto-increments after each report, persists between sessions |
+| **Empty field alerts** | Required fields highlighted with red glow when left empty |
 
 ---
 
-## Можливості (українською)
+## Screens / Екрани
 
-- **Структуровані звіти місій**  
-  Форма дозволяє створювати звіти по місії БПЛА з полями: екіпаж, лічильник екіпажу, дата, борт, характер місії, час зльоту, час ураження/втрати, координати MGRS (префікс + easting + northing), боєприпас, стрім і результат.
+### 1. Форма звіту (Main form)
 
-- **Оптимізація під мобільні та PWA**  
-  Інтерфейс спроєктований для телефонів і планшетів, з великими зонами натискання та можливістю встановлення як веб-додаток (PWA).
+Головний екран. Поля форми:
 
-- **Робота офлайн**  
-  Після першого завантаження по HTTP застосунок працює без мережі завдяки сервісному воркеру `sw.js`, який кешує статичні ресурси.
+- **Екіпаж** — позивний екіпажу (текст) + **лічильник** (1–25, зберігається між сесіями, автоінкремент після формування звіту)
+- **Дата** — дата місії (date picker)
+- **Борт** — вибір зі списку або утримати для вільного вводу
+- **Характер** — тип місії (вибір або вільний ввод)
+- **Час зльоту** — з кнопкою «Зараз»
+- **Час ураження/втрати** — з кнопкою «Зараз»
+- **Координати** — MGRS (префікс + easting + northing, по 5 цифр)
+- **Боєприпас** — вибір або вільний ввод
+- **Стрім** — посилання або "---"
+- **Результат** — вибір або вільний ввод
 
-- **Тільки локальне зберігання даних**  
-  Бекенд відсутній.  
-  Базова конфігурація читається з `config.json`, а історія звітів, лічильник екіпажу та локальні списки зберігаються лише в `localStorage` браузера.
+Кнопка **«Готово»** формує текст звіту, копіює його в буфер обміну та зберігає в журнал.
 
-- **Налаштовувані списки без редагування файлів**  
-  Базові списки (дрони, типи місій, боєприпаси, результати, префікси MGRS) задаються в `config.json`.  
-  Окремий екран “Налаштування списків” дозволяє перевизначити ці списки локально (разом зі списком стрімів), не змінюючи файл на диску.
+### 2. Журнал та статистика (Journal & statistics)
 
-- **Навігація між екранами через довге натискання**  
-  Довге натискання на заголовок у верхній частині відкриває меню екранів: форма, журнал і статистика, налаштування списків, довідка й контакти.  
-  Активний екран у меню підсвічується.
+- **Фільтр за періодом** — дата та час початку/кінця (за замовчуванням — поточний місяць). Фільтрація за полем «Час ураження/втрати».
+- **KPI-панель** — вильотів, уражень, втрат, ефективність (%).
+- **Вкладка «Статистика»** — зведення по бортах, боєприпасах, типах місій та результатах (з нормалізацією категорій).
+- **Вкладка «Журнал»** — список звітів картками, пошук по тексту, Copy / Share для кожного звіту, Copy all.
+- **Передача даних** — секція внизу екрана:
+  - **Експорт** — шифрує історію звітів (AES-256-GCM, ключ через PBKDF2) і зберігає як `uav_reports.enc.json`. Подвійне підтвердження ключа.
+  - **Імпорт** — зчитує зашифрований файл, перевіряє версію, структуру та кожен запис. Зливає з існуючою історією без дублів (дедуплікація за `ts + text`).
 
-- **Копіювання звіту в буфер обміну**  
-  Згенерований текст звіту відображається в полі “Готовий результат” та автоматично копіюється в буфер.  
-  За наявності `AndroidBridge` можна реалізувати додаткове ділення/відправлення тексту.
+### 3. Карта місій (Map)
 
-- **Лічильник екіпажу**  
-  Числове поле 1–25, яке зберігається між сесіями й може автоматично збільшуватися після кожного сформованого звіту.
+- Маркери з координатами MGRS зі звітів обраного періоду.
+- **Одна місія** — компактна цианова точка. Клік → overlay-карточка звіту.
+- **Декілька місій в одній точці** — круглий бейдж з числом:
+  - 2–3: зелений
+  - 4–5: лаймовий
+  - 6+: янтарно-оранжевий
+- Клік по бейджу → overlay зі списком місій (відсортовані за часом). Клік по місії → карточка звіту. Кнопка «Назад» повертає до списку.
+- Карточка звіту: текст, «Копіювати», «Поділитися».
 
-- **Підсвітка порожніх важливих полів**  
-  Обов’язкові поля підсвічуються (червона рамка та легке світіння), якщо вони порожні, що зменшує кількість помилок при заповненні.
+### 4. Налаштування списків (Settings)
+
+Редактор локальних списків, що мають пріоритет над `config.json`:
+
+- Дрони
+- Типи місій
+- Боєприпаси
+- Результати
+- Префікси MGRS
+- Стріми
+
+Drag-and-drop для порядку. Зміни зберігаються в `localStorage` і застосовуються одразу.
+
+### 5. Довідка та контакти (Help & contacts)
+
+Інструкція по роботі з додатком та контакти розробника.
 
 ---
 
-## Use cases
+## Instructions / Інструкція
 
-- UAV mission reporting in the field  
-- Quick notes for sorties and mission results  
-- Training and test flight documentation  
-- Any situation requiring fast, structured text reports without a backend
+### Як створити звіт
+
+1. Відкрийте додаток (головний екран — Форма звіту).
+2. Заповніть поля. У полях з випадаючим списком (Борт, Характер, Боєприпас, Результат) можна **утримати** для переходу у вільний ввод.
+3. Для швидкого вводу часу натисніть **«Зараз»** біля полів часу.
+4. Координати вводяться у форматі MGRS: виберіть префікс, введіть easting (5 цифр) і northing (5 цифр).
+5. Натисніть **«Готово»** — текст звіту з'явиться в полі «Готовий результат» і буде автоматично скопійований в буфер обміну.
+6. Лічильник екіпажу збільшиться автоматично. Він зберігається між сесіями.
+
+### Як переглянути історію та статистику
+
+1. Довге натискання на заголовок → меню → **«Журнал та статистика»**.
+2. За замовчуванням показано поточний місяць. Змініть дати/час і натисніть **«Показати»**.
+3. **KPI-панель** зверху показує ключові метрики.
+4. Перемикайтесь між **«Статистика»** (зведення) та **«Журнал»** (список звітів).
+5. У журналі: пошук, Copy / Share для кожного звіту, Copy all.
+
+### Як працювати з картою
+
+1. Меню → **«Карта»**.
+2. Маркери відповідають координатам зі звітів за обраний період.
+3. Одиночна точка — клік відкриває звіт.
+4. Бейдж з числом — клік відкриває список місій у цій точці, далі — вибір конкретної місії.
+
+### Як експортувати дані
+
+1. На екрані журналу, секція **«Передача даних»** внизу.
+2. Натисніть **«Експорт»**.
+3. Введіть ключ шифрування → підтвердіть його повторно.
+4. Файл `uav_reports.enc.json` буде завантажений. Зберігайте файл і ключ окремо.
+
+### Як імпортувати дані
+
+1. Натисніть **«Імпорт»** → виберіть `.json` файл.
+2. Введіть ключ, яким файл був зашифрований.
+3. Звіти з файлу буде злито з існуючою історією без дублікатів.
+4. Журнал і карта оновляться автоматично.
+
+### Як змінити списки
+
+1. Меню → **«Налаштування списків»**.
+2. Виберіть вкладку (Дрони, Боєприпаси тощо).
+3. Додайте, видаліть або перетягніть елементи.
+4. Натисніть 💾 для збереження. Зміни застосовуються одразу.
+
+### Навігація
+
+Довге натискання на заголовок **«Звіт по БПЛА»** відкриває меню екранів. Активний екран підсвічується.
 
 ---
 
-## Сценарії використання (українською)
-
-- Звітування місій БПЛА в польових умовах  
-- Швидкі нотатки по вильотах та їх результатах  
-- Документування тренувальних та тестових вильотів  
-- Будь-які ситуації, де потрібні швидкі структуровані текстові звіти без сервера
-
----
-
-## Project structure
+## Project structure / Структура проєкту
 
 ```text
 Report-UAV/
-├── index.html          # Main page; loads js/app.js as ES module
-├── styles.css          # Application styles (dark theme, layout, form, screen menu)
-├── config.json         # Base lists (drones, mission types, ammo, results, MGRS prefixes) and defaults
-├── manifest.json       # PWA manifest (name, icons, display mode, theme colors)
-├── sw.js               # Service Worker for offline caching
-├── js/
-│   ├── app.js          # Entry point: initializes all screens and navigation
-│   ├── constants.js    # CONFIG_URL, localStorage keys, REPORTS_LIMIT, STREAM_PLACEHOLDER
-│   ├── utils.js        # DOM helper $(), date/time helpers, status text, textarea autosize
-│   ├── counter.js      # Crew counter: parse, sanitize, load/save from localStorage
-│   ├── coords.js       # Coordinate normalization & MGRS-style string builder
-│   ├── clipboard.js    # copyText via Web Clipboard API or AndroidBridge
-│   ├── config.js       # loadConfig, applyConfig(+overrides), fillSelect/fillDatalist, empty-field highlighting
-│   ├── history.js      # loadReports/addReport: localStorage-backed report history with size limit
-│   ├── longPressEdit.js# Long-press on select → free-text input + datalist
-│   ├── generate.js     # Build report text, copy, save to history, increment counter, set date, track stream values
-│   ├── streams.js      # loadStreams/saveStreams/addStreamValue for known “stream” values
-│   ├── navigation.js   # Screen switching and long-press menu on the header
-│   └── screens/
-│       ├── mainForm.js # Main report form: bindings, config load, long-press edit for selects
-│       ├── journal.js  # Journal & statistics screen for a selected period
-│       └── settings.js # Local editor screen for lists (drones, ammo, mission types, results, MGRS prefixes, streams)
+├── index.html              # Main page (loads js/app.js as ES module)
+├── styles.css              # Dark theme, responsive layout, map markers, overlays
+├── config.json             # Base lists and default values
+├── manifest.json           # PWA manifest
+├── sw.js                   # Service Worker (offline caching)
+├── LICENSE                 # MIT
 ├── README.md
-└── LICENSE             # MIT
+│
+└── js/
+    ├── app.js              # Entry point: init all screens and navigation
+    ├── constants.js         # Storage keys, limits, config URL
+    ├── utils.js             # DOM helpers, date/time utils, status, textarea autosize
+    ├── counter.js           # Crew counter (1–25): parse, load/save
+    ├── coords.js            # Coordinate normalization, MGRS string builder
+    ├── clipboard.js         # Copy via Clipboard API or AndroidBridge
+    ├── config.js            # Load config.json, apply overrides, fill selects/datalists
+    ├── history.js           # loadReports / saveReports / addReport (localStorage)
+    ├── filters.js           # Shared period filter, impact timestamp extraction
+    ├── result-mapping.js    # Normalize result strings to standard categories
+    ├── longPressEdit.js     # Long-press on <select> → free-text input
+    ├── generate.js          # Build report text, copy, save, increment counter
+    ├── streams.js           # Known stream values persistence
+    ├── navigation.js        # Screen switching, long-press menu
+    │
+    ├── crypto/
+    │   ├── crypto.js        # AES-GCM + PBKDF2 encrypt/decrypt
+    │   └── importExport.js  # Export/import encrypted reports with validation and merge
+    │
+    └── screens/
+        ├── mainForm.js      # Main report form bindings
+        ├── journal.js       # Journal, statistics, KPI, search, cards, export/import UI
+        ├── map.js           # Leaflet map, grouped markers, two-level overlay viewer
+        └── settings.js      # Lists editor (tabs, drag-and-drop, quick save)
 ```
 
 ---
 
-## Screens
+## Configuration / Конфігурація
 
-- **Main form**  
-  Default screen with the mission report form:
-  - crew and crew counter;
-  - date;
-  - drone type;
-  - mission type;
-  - takeoff time;
-  - impact/loss time;
-  - MGRS-style coordinates (prefix + easting + northing);
-  - ammo;
-  - stream;
-  - result.  
-  Pressing “Done” generates structured report text, copies it to clipboard, saves it to history and optionally increments the crew counter.
-
-- **Journal & statistics**  
-  Screen for browsing saved reports and aggregating statistics:
-  - filter by date range (“from / to”);
-  - refine by impact/loss time range (uses the “impact/loss time” value from the report text);
-  - compute:
-    - number of sorties,
-    - counts per drone,
-    - counts per ammo type,
-    - counts per mission type,
-    - counts per result;
-  - display both a textual summary and a readable list of reports in the selected period.
-
-- **Settings (lists)**  
-  Screen for editing local lists which override `config.json`:
-  - drones;
-  - mission types;
-  - ammo;
-  - results;
-  - MGRS prefixes;
-  - streams.  
-  Each list is edited as “one value per line”. Changes are stored in `localStorage` and applied immediately to the main form. A reset button restores the base `config.json` values.
-
-- **Help & contacts**  
-  Short user guide describing:
-  - how to fill the main form;
-  - how to generate and use the report text;
-  - how the journal and statistics screen works;
-  - how local list settings behave.  
-  This screen also contains a place for developer/maintainer contact information (e.g. email, Telegram, internal contacts).
+- **`config.json`** — base lists (`drones`, `missionTypes`, `ammo`, `results`, `mgrsPrefixes`) and defaults (`mgrsPrefix`, `missionType`, `result`).
+- **Local overrides** — stored in `localStorage`, edited via Settings screen, take priority over `config.json`.
 
 ---
 
-## Екрани (українською)
+## Running locally / Запуск
 
-- **Головна форма**  
-  Екран за замовчуванням з формою звіту:
-  екіпаж і лічильник, дата, борт, характер місії, час зльоту, час ураження/втрати, координати MGRS, боєприпас, стрім та результат.  
-  Кнопка «Готово» формує структурований текст звіту, копіює його в буфер, зберігає в історію та, за потреби, збільшує лічильник екіпажу.
+Serve over HTTP:
 
-- **Журнал та статистика**  
-  Перегляд збережених звітів з фільтрацією за датою та часом завершення місії (поле «Час ураження/втрати»).  
-  Екран рахує кількість вильотів і показує зведену статистику за бортами, боєприпасами, типами місій та результатами, а також список звітів у вибраному періоді.
+```bash
+npx serve .
+```
 
-- **Налаштування списків**  
-  Редактор локальних списків (дрони, типи місій, боєприпаси, результати, префікси MGRS, стріми), що зберігаються в `localStorage` та мають пріоритет над базовим `config.json`, поки не будуть скинуті.
-
-- **Довідка та контакти**  
-  Коротке керівництво користувача та блок для контактів розробника / супроводу застосунку.
+Do **not** open `index.html` via `file://` — ES modules require HTTP.
 
 ---
 
-## Configuration
+## Privacy & security / Конфіденційність та безпека
 
-All selectable options and default values originate from **`config.json`** and optional local overrides.
-
-- `config.json`:
-  - `lists` — arrays of strings for dropdowns and datalists (`drones`, `missionTypes`, `ammo`, `results`, `mgrsPrefixes`);
-  - `defaults` — initial values for specific fields (`mgrsPrefix`, `missionType`, `result`).
-- Local overrides:
-  - stored in `localStorage` and applied on top of `config.json`;
-  - created and edited via the “Settings” screen;
-  - can be reset back to the base config at any time.
-
-Editing `config.json` changes the base profile for all users of the deployed files, while local overrides are per-browser and per-device.
+- No backend, no telemetry, no external APIs.
+- All data (reports, settings, counter) stored **only** in browser `localStorage`.
+- Encrypted export uses **AES-256-GCM** with key derived via **PBKDF2** (SHA-256, 250 000 iterations).
+- Encryption key is never stored — entered by user at export/import time.
 
 ---
 
-## Конфігурація (українською)
+## Developer / Розробник
 
-- Базові списки та значення за замовчуванням задаються в `config.json` (поля `lists` і `defaults`).  
-- Локальні перевизначення зберігаються в `localStorage` та налаштовуються через екран “Налаштування списків”.  
-  Вони мають пріоритет над значеннями з файлу `config.json`, поки не будуть скинуті користувачем.
-
----
-
-## Running locally
-
-- Serve the project over **HTTP** (for example `npx serve .` or any simple static server).  
-- Do **not** open `index.html` directly via `file://`:
-  - ES modules (`type="module"`) are blocked by most browsers when loaded from the file system.
+Telegram: [t.me/irreligious_86](https://t.me/irreligious_86)
+Email: [irreligious86@gmail.com](mailto:irreligious86@gmail.com)
+GitHub: [github.com/irreligious86/Report-UAV](https://github.com/irreligious86/Report-UAV)
 
 ---
 
-## Запуск локально (українською)
+## License / Ліцензія
 
-- Запускайте `index.html` через будь-який простий HTTP‑сервер (`npx serve .` тощо).  
-- Не відкривайте файл напряму через `file://`, оскільки ES‑модулі зазвичай не працюють у такому режимі.
-
----
-
-## Privacy
-
-The application **does not** collect, transmit, or store any data on external servers.  
-Configuration is loaded from a local file, and all runtime data (reports, counters, settings) live in the browser’s `localStorage` only.
+MIT — see [`LICENSE`](LICENSE).
 
 ---
 
-## Конфіденційність (українською)
+<div align="center">
 
-Застосунок **не** збирає, не передає і не зберігає дані на зовнішніх серверах.  
-Конфігурація завантажується з локального файлу, а історія звітів, лічильник екіпажу та локальні налаштування зберігаються лише в `localStorage` браузера.
+**Report UAV** — field-tested, offline-first, privacy-respecting.
 
----
+Built for operators. No servers. No tracking. Your data stays yours.
 
-## Status
+`AES-256-GCM` · `PBKDF2` · `MGRS` · `Leaflet` · `PWA` · `localStorage`
 
-The project is under active development.  
-The modular structure (separate screens and JS modules) is stable, and new functionality can be added without breaking the existing workflow.
-
----
-
-## Статус (українською)
-
-Проєкт знаходиться в активній розробці.  
-Модульна структура стабільна, тому функціональність можна розширювати без зміни базових сценаріїв роботи.
-
----
-
-## License
-
-MIT License — see the [`LICENSE`](LICENSE) file for details.
-
----
-
-## Ліцензія (українською)
-
-Застосунок поширюється за ліцензією MIT. Деталі містяться у файлі [`LICENSE`](LICENSE).
-
+</div>

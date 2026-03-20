@@ -1153,8 +1153,90 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   }
 }
 
-#journalTransferStatus {
+/* ========================================================= */
+/* Journal: data transfer section                            */
+/* ========================================================= */
+
+.journal-transfer {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(85, 243, 255, 0.12);
+}
+
+.journal-transfer-header {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: rgba(85, 243, 255, 0.45);
+  margin-bottom: 12px;
+}
+
+.journal-transfer-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.journal-transfer-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(85, 243, 255, 0.18);
+  background: linear-gradient(180deg, rgba(18, 32, 34, 0.85), rgba(8, 14, 16, 0.65));
+  color: var(--label);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(85, 243, 255, 0.06);
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+
+.journal-transfer-btn:hover {
+  border-color: rgba(85, 243, 255, 0.35);
+  box-shadow:
+    0 2px 12px rgba(85, 243, 255, 0.12),
+    inset 0 1px 0 rgba(85, 243, 255, 0.08);
+}
+
+.journal-transfer-btn:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+.journal-transfer-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(85, 243, 255, 0.1);
+  color: rgba(85, 243, 255, 0.7);
+  font-size: 15px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.journal-transfer-label {
+  white-space: nowrap;
+}
+
+.journal-transfer-status {
   margin-top: 10px;
+  font-size: 13px;
+  min-height: 18px;
+  color: rgba(85, 243, 255, 0.6);
+}
+
+@media (max-width: 360px) {
+  .journal-transfer-row {
+    grid-template-columns: 1fr;
+  }
 }
 
   .journal-period-block .row {
@@ -1192,4 +1274,26 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     margin-top: 10px;
     border-radius: 0;
   }
+}
+
+/* ========================================================= */
+/* Help screen                                               */
+/* ========================================================= */
+
+.help-card p {
+  margin: 6px 0;
+  line-height: 1.55;
+}
+
+.help-card code {
+  background: rgba(85, 243, 255, 0.08);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.help-divider {
+  margin: 16px 0;
+  border: 0;
+  border-top: 1px solid rgba(85, 243, 255, 0.1);
 }
