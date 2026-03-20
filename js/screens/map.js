@@ -305,23 +305,6 @@ function extractCoords(text) {
 }
 
 /**
- * Extracts short title from report text.
- * Витягує короткий заголовок для popup.
- * @param {string} text
- * @returns {string}
- */
-function extractPopupTitle(text) {
-  const lines = String(text || "")
-    .split("\n")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  const crew = lines[0] || "Без назви";
-  const date = lines[1] || "";
-  return date ? `${crew} • ${date}` : crew;
-}
-
-/**
  * Safe HTML escaping for popup content.
  * Безпечне екранування HTML для popup.
  * @param {string} value
@@ -483,6 +466,10 @@ export function initMapScreen() {
 
   markersLayer = window.L.layerGroup().addTo(map);
 
+  window.addEventListener("reportsUpdated", () => {
+    renderReportsOnMap();
+  });
+
   if (statusEl) {
     statusEl.textContent = "Мапу ініціалізовано. Точки буде завантажено при відкритті екрана.";
   }
@@ -502,90 +489,3 @@ export function onMapScreenShown() {
   }, 60);
 }
 
-// --- Overlay helpers -------------------------------------------------------
-
-/** @type {{ pos: {lat:number,lng:number}, coordsText: string, reports: Array<{text:string}> } | null} */
-let lastGroupForReport = null;
-
-function openGroupOverlay(group) {
-  const overlay = $("mapGroupOverlay");
-  const titleEl = $("mapGroupTitle");
-  const subtitleEl = $("mapGroupSubtitle");
-  const listEl = $("mapMissionList");
-  if (!overlay || !subtitleEl || !listEl) return;
-
-  lastGroupForReport = group;
-
-  overlay.classList.remove("screenHidden");
-  overlay.setAttribute("aria-hidden", "false");
-
-  if (titleEl) {
-    titleEl.textContent = `Місії у точці: ${group.reports.length}`;
-  }
-  subtitleEl.textContent = group.coordsText || "";
-
-  listEl.textContent = "";
-
-  group.reports.forEach((report, index) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "map-mission-item";
-
-    const t = document.createElement("span");
-    t.className = "map-mission-item-title";
-    t.textContent = `Місія ${index + 1}`;
-
-    const meta = document.createElement("span");
-    meta.className = "map-mission-item-meta";
-    meta.textContent = extractPopupTitle(report.text);
-
-    btn.appendChild(t);
-    btn.appendChild(meta);
-
-    btn.onclick = () => openReportOverlay(report, index + 1, group);
-
-    listEl.appendChild(btn);
-  });
-
-  listEl.scrollTop = 0;
-}
-
-function closeGroupOverlay() {
-  const overlay = $("mapGroupOverlay");
-  if (!overlay) return;
-  overlay.classList.add("screenHidden");
-  overlay.setAttribute("aria-hidden", "true");
-}
-
-function reopenLastGroupOverlay() {
-  if (lastGroupForReport) {
-    openGroupOverlay(lastGroupForReport);
-  }
-}
-
-function openReportOverlay(report, index, group) {
-  const overlay = $("mapReportOverlay");
-  const titleEl = $("mapReportTitle");
-  const subtitleEl = $("mapReportSubtitle");
-  const contentEl = $("mapReportContent");
-  if (!overlay || !subtitleEl || !contentEl) return;
-
-  overlay.classList.remove("screenHidden");
-  overlay.setAttribute("aria-hidden", "false");
-
-  if (titleEl) {
-    titleEl.textContent = `Місія ${index}`;
-  }
-
-  const label = extractPopupTitle(report.text);
-  subtitleEl.textContent = `${label} • ${group.coordsText || ""}`;
-
-  contentEl.textContent = report.text || "";
-}
-
-function closeReportOverlay() {
-  const overlay = $("mapReportOverlay");
-  if (!overlay) return;
-  overlay.classList.add("screenHidden");
-  overlay.setAttribute("aria-hidden", "true");
-}
