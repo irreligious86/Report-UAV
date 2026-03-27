@@ -19,7 +19,12 @@ import {
   getImpactTimestampForReport,
   normalizeDateToISO,
 } from "../filters.js";
-import { mapResultToCategory, RESULT_CATEGORIES } from "../result-mapping.js";
+import {
+  mapResultToCategory,
+  RESULT_CATEGORIES,
+  isKpiHit,
+  isKpiLoss,
+} from "../result-mapping.js";
 import {
   exportEncryptedReports,
   importEncryptedReports,
@@ -355,8 +360,8 @@ function renderForSelectedPeriod() {
       const category = mapResultToCategory(parsed.result);
       inc(counts.results, category);
 
-      if (category === RESULT_CATEGORIES.HIT) hits += 1;
-      if (category === RESULT_CATEGORIES.LOSS) loss += 1;
+      if (isKpiHit(parsed.result)) hits += 1;
+      if (isKpiLoss(parsed.result)) loss += 1;
     }
 
     // Card DOM

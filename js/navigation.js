@@ -4,7 +4,7 @@
  * @module navigation
  */
 
-import { $ } from "./utils.js";
+import { $, refreshMissionDateForNewDay } from "./utils.js";
 import { onMapScreenShown, resetMapLayout } from "./screens/map.js";
 
 /** Known screen ids. Допустимые идентификаторы экранов. */
@@ -164,5 +164,9 @@ export function navigateTo(screenId) {
 
   if (currentScreenId === "map") {
     onMapScreenShown();
+  }
+
+  if (currentScreenId === "main") {
+    refreshMissionDateForNewDay();
   }
 }

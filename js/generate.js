@@ -4,7 +4,14 @@
  * @module generate
  */
 
-import { $, isoToDDMMYYYY, todayISO, autosizeTextarea, setStatus } from "./utils.js";
+import {
+  $,
+  isoToDDMMYYYY,
+  todayISO,
+  autosizeTextarea,
+  setStatus,
+  refreshMissionDateForNewDay,
+} from "./utils.js";
 import { STREAM_PLACEHOLDER } from "./constants.js";
 import { parseCounterRaw, saveCounterMaybe } from "./counter.js";
 import { buildCoordsOrError } from "./coords.js";
@@ -15,12 +22,17 @@ import { addStreamValue } from "./streams.js";
 
 /**
  * Generates the report text from form fields, writes to #output, copies to clipboard, saves to history.
- * If crew counter is set, increments it and updates date picker to today.
- * Формирует текст отчёта из полей формы, записывает в #output, копирует в буфер, сохраняет в историю.
- * Если задан счётчик экипажа — увеличивает его и обновляет дату на сегодня.
+ * Перед збором тексту синхронізує дату з локальною «сьогодні», якщо настала нова доба або поле порожнє.
+ * Якщо задан счётчик экипажа — увеличивает его и обновляет дату на сегодня.
  * @returns {Promise<void>}
  */
 export async function generate() {
+  refreshMissionDateForNewDay();
+  const dp = $("datePicker");
+  if (dp instanceof HTMLInputElement && !String(dp.value || "").trim()) {
+    dp.value = todayISO();
+  }
+
   if ($("crew").value === "") $("crew").value = "Дакар";
   const coords = buildCoordsOrError();
   if (!coords) return;
