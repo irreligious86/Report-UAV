@@ -1678,9 +1678,15 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 /* Help screen                                               */
 /* ========================================================= */
 
+.help-card {
+  user-select: text;
+  -webkit-user-select: text;
+  padding-bottom: 8px;
+}
+
 .help-card p {
-  margin: 6px 0;
-  line-height: 1.55;
+  margin: 8px 0;
+  line-height: 1.58;
 }
 
 .help-card code {
@@ -1690,8 +1696,262 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   font-size: 0.9em;
 }
 
+.help-card a {
+  color: var(--label);
+  text-decoration: underline;
+  text-decoration-color: rgba(85, 243, 255, 0.45);
+  text-underline-offset: 3px;
+}
+
 .help-divider {
   margin: 16px 0;
   border: 0;
   border-top: 1px solid rgba(85, 243, 255, 0.1);
+}
+
+/* Розділи довідки: сітка «карток», ліва смуга-акцент */
+.help-section {
+  margin: 0 0 18px;
+  padding: 14px 14px 14px 16px;
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(85, 243, 255, 0.06), transparent 42%),
+    rgba(10, 15, 16, 0.55);
+  border: 1px solid rgba(85, 243, 255, 0.12);
+  box-shadow: inset 3px 0 0 rgba(0, 255, 102, 0.45);
+}
+
+.help-section:last-child {
+  margin-bottom: 0;
+}
+
+.help-section--crypto {
+  box-shadow: inset 3px 0 0 rgba(85, 243, 255, 0.55);
+  background:
+    linear-gradient(135deg, rgba(85, 243, 255, 0.09), transparent 50%),
+    rgba(10, 15, 16, 0.6);
+}
+
+.help-section--contacts {
+  box-shadow: inset 3px 0 0 rgba(0, 255, 102, 0.5);
+  background:
+    linear-gradient(145deg, rgba(0, 255, 102, 0.06), transparent 40%),
+    rgba(10, 15, 16, 0.55);
+}
+
+.help-section-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--label);
+  line-height: 1.25;
+}
+
+.help-section-num {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: var(--bg);
+  background: linear-gradient(145deg, rgba(85, 243, 255, 0.95), rgba(0, 255, 102, 0.85));
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.help-section-heading-text {
+  padding-top: 2px;
+}
+
+/* Підзаголовок розділу (коротка мітка над абзацом) */
+.help-kicker {
+  margin: 14px 0 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(85, 243, 255, 0.72);
+}
+
+.help-kicker:first-child {
+  margin-top: 0;
+}
+
+.help-kicker em {
+  font-style: normal;
+}
+
+/* Списки з маркерами «•» у тексті */
+.help-bullets {
+  margin: 8px 0 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(85, 243, 255, 0.1);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.help-bullets--compact {
+  padding: 10px 12px;
+  font-size: 0.92rem;
+}
+
+.help-bullets--dense {
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+/* Нумеровані кроки (експорт / імпорт) */
+.help-steps {
+  margin: 8px 0 12px;
+  padding: 12px 14px 12px 18px;
+  border-radius: 12px;
+  border: 1px dashed rgba(0, 255, 102, 0.28);
+  background: rgba(0, 255, 102, 0.04);
+  font-size: 0.94rem;
+  line-height: 1.62;
+}
+
+/* Внутрішні підблоки з міткою */
+.help-subblock {
+  margin: 12px 0;
+  padding: 11px 13px;
+  border-radius: 11px;
+  border-left: 3px solid rgba(85, 243, 255, 0.35);
+  background: rgba(85, 243, 255, 0.05);
+  line-height: 1.55;
+  font-size: 0.96rem;
+}
+
+.help-subblock-label {
+  color: var(--label);
+  font-weight: 800;
+}
+
+/* Другорядний абзац */
+.help-muted-block {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid rgba(85, 243, 255, 0.08);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: rgba(122, 167, 169, 0.92);
+}
+
+/* Callout-и */
+.help-callout {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 0.94rem;
+  line-height: 1.52;
+  border: 1px solid transparent;
+}
+
+.help-callout--action {
+  border-color: rgba(0, 255, 102, 0.28);
+  background: rgba(0, 255, 102, 0.08);
+}
+
+.help-callout--tip {
+  border-color: rgba(85, 243, 255, 0.32);
+  background: rgba(85, 243, 255, 0.07);
+}
+
+.help-callout--warn {
+  border-color: rgba(255, 180, 72, 0.35);
+  background: rgba(255, 180, 72, 0.08);
+  color: rgba(255, 220, 170, 0.98);
+}
+
+.help-callout--security {
+  border-color: rgba(255, 77, 109, 0.35);
+  background: rgba(255, 77, 109, 0.07);
+  color: rgba(255, 200, 210, 0.96);
+  font-size: 0.9rem;
+}
+
+/* Контакти — картки-рядки */
+.help-contact-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.help-contact-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(85, 243, 255, 0.16);
+  box-shadow: var(--shadow-btn);
+  transition:
+    border-color 0.15s ease,
+    transform 0.12s ease,
+    background 0.15s ease;
+}
+
+.help-contact-card:hover,
+.help-contact-card:focus-visible {
+  border-color: rgba(85, 243, 255, 0.45);
+  background: rgba(85, 243, 255, 0.08);
+  outline: none;
+}
+
+.help-contact-card:active {
+  transform: scale(0.99);
+}
+
+.help-contact-icon {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--bg);
+  background: linear-gradient(160deg, rgba(85, 243, 255, 0.95), rgba(0, 255, 102, 0.75));
+}
+
+.help-contact-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.help-contact-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(85, 243, 255, 0.65);
+}
+
+.help-contact-value {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--value);
+  word-break: break-word;
 }
