@@ -31,3 +31,6 @@ export const STORAGE_KEY_CONFIG_OVERRIDES = "uav_report_config_overrides_v1";
 /** localStorage key for known stream values collected from reports. */
 /** Ключ localStorage для списка значений поля «Стрім», собранных из отчётов. */
 export const STORAGE_KEY_STREAMS = "uav_report_streams_v1";
+
+/** Збережений вибір базового шару карти (підпис у перемикачі шарів). */
+export const STORAGE_KEY_MAP_BASEMAP = "uav_map_basemap_label_v1";

@@ -5,6 +5,7 @@
  */
 
 import { loadReports, deleteReportsByIds } from "../history.js";
+import { STORAGE_KEY_MAP_BASEMAP } from "../constants.js";
 import { $, setStatus } from "../utils.js";
 import { copyText } from "../clipboard.js";
 import { toPoint } from "https://esm.sh/mgrs@2.1.0";
@@ -550,10 +551,66 @@ export function initMapScreen() {
     attributionControl: true,
   }).setView([48.3794, 31.1656], 6);
 
-  window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  const osmLayer = window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
-    attribution: "&copy; OpenStreetMap",
-  }).addTo(map);
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  });
+
+  const esriSatLayer = window.L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    {
+      maxZoom: 19,
+      attribution:
+        'Супутник © <a href="https://www.esri.com/">Esri</a> (World Imagery)',
+    }
+  );
+
+  const openTopoLayer = window.L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+    maxZoom: 17,
+    subdomains: "abc",
+    attribution:
+        'Рельєф: © <a href="https://opentopomap.org">OpenTopoMap</a> '
+        + '(<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>), '
+        + 'дані © <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+  });
+
+  const baseMaps = {
+    "Схема (OSM)": osmLayer,
+    Супутник: esriSatLayer,
+    "Рельєф і висоти": openTopoLayer,
+  };
+
+  let initialLabel = "Схема (OSM)";
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_MAP_BASEMAP);
+    if (saved && Object.prototype.hasOwnProperty.call(baseMaps, saved)) {
+      initialLabel = saved;
+    }
+  } catch {
+    /* ignore */
+  }
+
+  baseMaps[initialLabel].addTo(map);
+
+  window.L.control
+    .layers(baseMaps, null, {
+      position: "bottomright",
+      collapsed: true,
+    })
+    .addTo(map);
+
+  map.on("baselayerchange", () => {
+    for (const label of Object.keys(baseMaps)) {
+      if (map.hasLayer(baseMaps[label])) {
+        try {
+          localStorage.setItem(STORAGE_KEY_MAP_BASEMAP, label);
+        } catch {
+          /* ignore */
+        }
+        break;
+      }
+    }
+  });
 
   markersLayer = window.L.layerGroup().addTo(map);
 
