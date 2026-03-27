@@ -4,7 +4,7 @@
  * @module screens/mainForm
  */
 
-import { $, todayISO, nowTime, setStatus } from "../utils.js";
+import { $, nowTime, setStatus, refreshMissionDateForNewDay } from "../utils.js";
 import { loadCounter, sanitizeCounterField } from "../counter.js";
 import { normalize5 } from "../coords.js";
 import {
@@ -33,8 +33,14 @@ export async function initMainFormScreen() {
 
   const datePicker = $("datePicker");
   const takeoff = $("takeoff");
-  if (datePicker) datePicker.value = todayISO();
+  if (datePicker) refreshMissionDateForNewDay();
   if (takeoff) takeoff.value = nowTime();
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      refreshMissionDateForNewDay();
+    }
+  });
 
   loadCounter();
 

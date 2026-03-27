@@ -4,8 +4,8 @@
  * @module navigation
  */
 
-import { $ } from "./utils.js";
-import { onMapScreenShown } from "./screens/map.js";
+import { $, refreshMissionDateForNewDay } from "./utils.js";
+import { onMapScreenShown, resetMapLayout } from "./screens/map.js";
 
 /** Known screen ids. Допустимые идентификаторы экранов. */
 const SCREEN_IDS = ["main", "journal", "settings", "map", "help"];
@@ -110,6 +110,10 @@ export function initNavigation() {
 export function navigateTo(screenId) {
   if (!SCREEN_IDS.includes(screenId)) return;
 
+  if (screenId !== "map") {
+    resetMapLayout();
+  }
+
   currentScreenId = screenId;
 
   for (const id of SCREEN_IDS) {
@@ -160,5 +164,9 @@ export function navigateTo(screenId) {
 
   if (currentScreenId === "map") {
     onMapScreenShown();
+  }
+
+  if (currentScreenId === "main") {
+    refreshMissionDateForNewDay();
   }
 }

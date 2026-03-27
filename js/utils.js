@@ -32,13 +32,38 @@ export function nowTime() {
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
+/** Останній календарний день («якір»), на який уже підлаштовано поле дати — щоб раз на нову добу оновити інтерфейс. */
+const SESSION_DATE_ANCHOR_KEY = "uav_mission_date_calendar_anchor_v1";
+
 /**
- * Returns today's date as ISO date string "YYYY-MM-DD".
- * Возвращает сегодняшнюю дату в формате "ГГГГ-ММ-ДД".
+ * Поточна календарна дата в часовому поясі пристрою (не UTC), формат YYYY-MM-DD.
+ * toISOString().slice(0,10) дає UTC і біля півночі дає «вчора» — тому лише локальні getFullYear/Month/Date.
  * @returns {string}
  */
 export function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+/**
+ * Якщо настав новий календарний день або поле дати порожнє — підставляє сьогоднішню локальну дату.
+ * Не чіпає дату, якщо користувач штучно вибрав інший день у межах тієї ж доби сесії (якір уже = сьогодні).
+ */
+export function refreshMissionDateForNewDay() {
+  const today = todayISO();
+  const dp = $("datePicker");
+  if (!(dp instanceof HTMLInputElement)) return;
+
+  const anchor = sessionStorage.getItem(SESSION_DATE_ANCHOR_KEY);
+  if (anchor !== today) {
+    dp.value = today;
+    sessionStorage.setItem(SESSION_DATE_ANCHOR_KEY, today);
+    return;
+  }
+
+  if (!String(dp.value || "").trim()) {
+    dp.value = today;
+  }
 }
 
 /**
