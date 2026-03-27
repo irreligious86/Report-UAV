@@ -22,7 +22,7 @@ export const STORAGE_KEY_REPORTS = "uav_report_history_v1";
 
 /** Maximum number of reports to keep in history; older entries are dropped. */
 /** Максимальное количество отчётов в истории; старые записи удаляются. */
-export const REPORTS_LIMIT = 200;
+export const REPORTS_LIMIT = 500;
 
 /** localStorage key for user overrides of config.json lists/defaults (settings screen). */
 /** Ключ localStorage для пользовательских переопределений config.json (экран настроек). */

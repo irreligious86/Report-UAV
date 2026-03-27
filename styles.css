@@ -360,10 +360,124 @@ button:active {
   color: var(--value);
 }
 
-/* Map screen: larger map height on all devices */
-#screen-map #map {
+/* Map screen: toolbar (заголовок екрана — лише в #title; тут лише керування мапою) */
+.map-screen-top {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+
+.map-fullscreen-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  margin: 0;
+  flex: 0 0 auto;
+  border-radius: 14px;
+  border: 2px solid rgba(0, 255, 102, 0.55);
+  background: linear-gradient(180deg, rgba(0, 255, 102, 0.16), rgba(0, 0, 0, 0.45));
+  color: var(--value);
+  cursor: pointer;
+  box-shadow:
+    0 0 14px rgba(0, 255, 102, 0.12),
+    var(--shadow-btn);
+  transition: transform 0.1s, border-color 0.15s, box-shadow 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.map-fullscreen-toggle:hover {
+  border-color: rgba(0, 255, 102, 0.8);
+  box-shadow:
+    0 0 20px rgba(0, 255, 102, 0.2),
+    var(--shadow-btn);
+}
+
+.map-fullscreen-toggle:active {
+  transform: translateY(1px) scale(0.97);
+}
+
+.map-fs-ico {
+  display: block;
+  pointer-events: none;
+}
+
+.map-fs-ico-collapse {
+  display: none;
+}
+
+.map-fullscreen-toggle[aria-expanded="true"] .map-fs-ico-expand {
+  display: none;
+}
+
+.map-fullscreen-toggle[aria-expanded="true"] .map-fs-ico-collapse {
+  display: block;
+}
+
+#screen-map.map-screen--expanded .map-fullscreen-toggle {
+  border-color: rgba(85, 243, 255, 0.45);
+  background: linear-gradient(180deg, rgba(85, 243, 255, 0.12), rgba(0, 0, 0, 0.5));
+  color: var(--label);
+  box-shadow: var(--shadow-btn);
+}
+
+#screen-map.map-screen--expanded .map-fullscreen-toggle:hover {
+  border-color: rgba(85, 243, 255, 0.65);
+}
+
+#screen-map .map-leaflet-host {
+  width: 100%;
   height: 52vh;
   min-height: 420px;
+  margin-top: 10px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Повноекранний режим мапи (в межах вікна застосунку; верх — під шапкою з заголовком) */
+#screen-map.map-screen--expanded {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: var(--map-fs-top, 0);
+  z-index: 600;
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+#screen-map.map-screen--expanded .map-screen-card {
+  height: 100%;
+  max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0;
+  margin: 0;
+  padding-top: max(10px, env(safe-area-inset-top));
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: max(12px, env(safe-area-inset-right));
+}
+
+#screen-map.map-screen--expanded .map-screen-top {
+  flex-shrink: 0;
+}
+
+#screen-map.map-screen--expanded .status {
+  flex-shrink: 0;
+}
+
+#screen-map.map-screen--expanded .map-leaflet-host {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto !important;
+  max-height: none;
+  margin-top: 8px;
 }
 
 /* Make native calendar/time icons visible on dark background */
@@ -441,10 +555,130 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 /* Journal Cards                                             */
 /* ========================================================= */
 
+.journal-archive-info {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--label);
+  opacity: 0.92;
+}
+
+.journal-filter-count {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 2px solid rgba(0, 255, 102, 0.45);
+  background: linear-gradient(180deg, rgba(0, 255, 102, 0.14), rgba(0, 0, 0, 0.35));
+  color: var(--value);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: center;
+  box-shadow:
+    0 0 16px rgba(0, 255, 102, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
 .journal-toolbar {
   display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.journal-toolbar > .btn {
+  flex: 1 1 100%;
+  min-height: 48px;
+  padding: 12px 16px;
+  font-size: 16px;
+  font-weight: 800;
+  border-radius: 14px;
+  border-width: 2px;
+  border-color: rgba(85, 243, 255, 0.5);
+  background: linear-gradient(180deg, rgba(30, 52, 56, 0.98), rgba(8, 14, 16, 0.92));
+  color: var(--label);
+  box-shadow:
+    inset 0 0 0 1px rgba(85, 243, 255, 0.12),
+    0 6px 18px rgba(0, 0, 0, 0.55);
+  -webkit-tap-highlight-color: rgba(85, 243, 255, 0.15);
+}
+
+.journal-toolbar > .btn:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+.journal-btn-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.journal-toolbar .journal-btn-danger {
+  border-color: rgba(255, 77, 109, 0.9);
+  border-width: 2px;
+  color: #fff;
+  background: linear-gradient(180deg, rgba(140, 40, 65, 0.9), rgba(45, 14, 22, 0.95));
+  box-shadow:
+    0 0 18px rgba(255, 77, 109, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.journal-toolbar .journal-btn-danger:active {
+  box-shadow: 0 0 12px rgba(255, 77, 109, 0.22);
+}
+
+.journal-toolbar > .btn:not(.journal-btn-danger):hover {
+  border-color: rgba(0, 255, 102, 0.45);
+  box-shadow:
+    0 0 20px rgba(0, 255, 102, 0.15),
+    inset 0 0 0 1px rgba(85, 243, 255, 0.15);
+}
+
+.journal-edit-dialog {
+  max-width: calc(100vw - 32px);
+  width: min(520px, 100%);
+  padding: 0;
+  border: 1px solid var(--stroke);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(10, 15, 16, 0.98), rgba(10, 15, 16, 0.9));
+  color: var(--value);
+  box-shadow: var(--shadow-btn);
+}
+
+.journal-edit-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.journal-edit-inner {
+  padding: 16px;
+}
+
+.journal-edit-title {
+  font-weight: 800;
+  margin-bottom: 10px;
+  color: var(--label);
+}
+
+.journal-edit-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 200px;
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--stroke2);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--value);
+  resize: vertical;
+}
+
+.journal-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
-  margin-top: 10px;
+  margin-top: 12px;
 }
 
 .journal-cards {
@@ -471,38 +705,43 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 .journal-card-head {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 10px;
   margin-bottom: 10px;
 }
 
-.journal-card-title {
-  flex: 1 1 auto;
-  min-width: 0;
+.journal-card-summary {
   margin: 0;
   color: var(--label);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
-  line-height: 1.25;
+  line-height: 1.35;
+  letter-spacing: 0.02em;
   word-break: break-word;
   overflow-wrap: anywhere;
 }
 
 .journal-card-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  flex: 0 0 auto;
+  width: 100%;
 }
 
 .journal-card-actions button,
 .journal-card-actions .btn,
 .journal-card-actions .btnSmall {
-  flex: 0 0 auto;
-  min-width: 72px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 8px;
+  font-size: 14px;
+  font-weight: 800;
+  border-width: 2px;
+  border-color: rgba(85, 243, 255, 0.45);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-tap-highlight-color: rgba(85, 243, 255, 0.15);
 }
 
 .journal-card-body {
@@ -710,8 +949,8 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     grid-template-columns: 1fr 1fr;
   }
 
-  /* Карта на весь екран по ширині та більша по висоті на смартфонах */
-  #screen-map .card {
+  /* Карта на всю ширину та вища на смартфонах (звичайний режим) */
+  #screen-map:not(.map-screen--expanded) .map-screen-card {
     margin-left: calc(-14px - env(safe-area-inset-left));
     margin-right: calc(-14px - env(safe-area-inset-right));
     width: calc(100% + 28px + env(safe-area-inset-left) + env(safe-area-inset-right));
@@ -719,11 +958,23 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     border-radius: 0;
   }
 
-  #screen-map #map {
+  #screen-map:not(.map-screen--expanded) .map-leaflet-host {
     height: 65vh;
     min-height: 320px;
     margin-top: 10px;
     border-radius: 0;
+  }
+
+  .journal-card-summary {
+    font-size: 15px;
+  }
+
+  .journal-card-actions button,
+  .journal-card-actions .btn,
+  .journal-card-actions .btnSmall {
+    min-height: 46px;
+    padding: 10px 4px;
+    font-size: 12px;
   }
 }
 
@@ -1046,14 +1297,60 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 .map-report-actions {
   display: flex;
+  flex-direction: row;
+  align-items: stretch;
   gap: 10px;
   padding: 10px 14px 0;
-  justify-content: center;
 }
 
-.map-report-actions .btn {
+.map-report-actions-primary {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 10px;
+}
+
+.map-report-actions-primary .btn {
   flex: 1 1 0;
-  max-width: 220px;
+  min-width: 0;
+  min-height: 46px;
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.map-report-delete-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  min-width: 46px;
+  height: 46px;
+  padding: 0;
+  margin: 0;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 77, 109, 0.65);
+  background: rgba(255, 77, 109, 0.12);
+  color: rgba(255, 120, 140, 0.98);
+  cursor: pointer;
+  box-shadow: var(--shadow-btn);
+  transition: transform 0.1s, border-color 0.15s, background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.map-report-delete-icon:hover {
+  border-color: rgba(255, 77, 109, 0.95);
+  background: rgba(255, 77, 109, 0.2);
+  color: #fff;
+}
+
+.map-report-delete-icon:active {
+  transform: translateY(1px) scale(0.97);
+}
+
+.map-report-delete-icon svg {
+  display: block;
+  pointer-events: none;
 }
 
 .map-report-content-wrap {
@@ -1112,10 +1409,26 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     gap: 8px;
   }
 
-  .map-report-actions .btn {
-    min-height: 42px;
-    font-size: 14px;
-    padding: 10px 12px;
+  .map-report-actions-primary {
+    gap: 8px;
+  }
+
+  .map-report-actions-primary .btn {
+    min-height: 46px;
+    font-size: 15px;
+    padding: 12px 10px;
+  }
+
+  .map-report-delete-icon {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    border-radius: 11px;
+  }
+
+  .map-report-delete-icon svg {
+    width: 20px;
+    height: 20px;
   }
 
   .map-report-content-wrap {
@@ -1236,43 +1549,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 @media (max-width: 360px) {
   .journal-transfer-row {
     grid-template-columns: 1fr;
-  }
-}
-
-  .journal-period-block .row {
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-
-  .journal-card-head {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .journal-card-actions {
-    justify-content: flex-start;
-  }
-
-  .journal-card-actions button,
-  .journal-card-actions .btn,
-  .journal-card-actions .btnSmall {
-    min-width: 68px;
-  }
-
-  /* Карта на весь екран по ширині та більша по висоті на смартфонах */
-  #screen-map .card {
-    margin-left: calc(-14px - env(safe-area-inset-left));
-    margin-right: calc(-14px - env(safe-area-inset-right));
-    width: calc(100% + 28px + env(safe-area-inset-left) + env(safe-area-inset-right));
-    max-width: none;
-    border-radius: 0;
-  }
-
-  #screen-map #map {
-    height: 65vh;
-    min-height: 320px;
-    margin-top: 10px;
-    border-radius: 0;
   }
 }
 

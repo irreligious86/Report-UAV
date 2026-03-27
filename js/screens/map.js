@@ -4,7 +4,7 @@
  * @module screens/map
  */
 
-import { loadReports } from "../history.js";
+import { loadReports, deleteReportsByIds } from "../history.js";
 import { $, setStatus } from "../utils.js";
 import { copyText } from "../clipboard.js";
 import { toPoint } from "https://esm.sh/mgrs@2.1.0";
@@ -15,6 +15,52 @@ let map = null;
 let markersLayer = null;
 let activeMissionGroup = null;
 let activeReport = null;
+
+/** Чи мапа розгорнута на весь екран застосунку (fixed layout). */
+let mapLayoutExpanded = false;
+
+/**
+ * Повертає макет мапи до звичайного (вихід з «на весь екран»).
+ * Викликається при переході на інший екран.
+ */
+export function resetMapLayout() {
+  if (!mapLayoutExpanded) return;
+  setMapLayoutExpanded(false);
+}
+
+/**
+ * @param {boolean} expanded
+ */
+function setMapLayoutExpanded(expanded) {
+  mapLayoutExpanded = expanded;
+  const screenEl = $("screen-map");
+  const btn = $("mapToggleFullscreen");
+  const titleEl = $("title");
+
+  if (screenEl) {
+    screenEl.classList.toggle("map-screen--expanded", expanded);
+    if (expanded && titleEl) {
+      const topPx = Math.ceil(titleEl.getBoundingClientRect().bottom + 4);
+      screenEl.style.setProperty("--map-fs-top", `${topPx}px`);
+    } else {
+      screenEl.style.removeProperty("--map-fs-top");
+    }
+  }
+  if (btn) {
+    btn.setAttribute("aria-expanded", expanded ? "true" : "false");
+    if (expanded) {
+      btn.title = "Звичайний розмір мапи";
+      btn.setAttribute("aria-label", "Повернути мапу до звичайного розміру");
+    } else {
+      btn.title = "Розгорнути мапу";
+      btn.setAttribute("aria-label", "Розгорнути мапу на весь екран");
+    }
+  }
+
+  window.setTimeout(() => {
+    if (map) map.invalidateSize();
+  }, expanded ? 320 : 100);
+}
 
 function createMarkerIcon(count) {
   const safeCount = Number.isFinite(count) && count > 0 ? count : 1;
@@ -131,6 +177,22 @@ function openMapOverlay(overlayEl) {
   overlayEl.setAttribute("aria-hidden", "false");
 }
 
+/**
+ * Стабільний id звіту (після міграції завжди є; для старих — пошук у сховищі).
+ * @param {{ id?: string, ts?: string, text?: string }|null|undefined} report
+ * @returns {string|null}
+ */
+function resolveReportStorageId(report) {
+  if (!report) return null;
+  const direct = report.id && String(report.id).trim();
+  if (direct) return direct;
+  const arr = loadReports();
+  const found = arr.find(
+    (r) => r.text === report.text && r.ts === report.ts
+  );
+  return found?.id && String(found.id).trim() ? String(found.id).trim() : null;
+}
+
 async function shareReportText(report) {
   const text = String(report?.text || "").trim();
   if (!text) {
@@ -238,6 +300,7 @@ function initMapOverlays() {
   const reportBackBtn = $("mapReportBackBtn");
   const copyBtn = $("mapReportCopyBtn");
   const shareBtn = $("mapReportShareBtn");
+  const deleteBtn = $("mapReportDeleteBtn");
 
   if (groupCloseBtn) {
     groupCloseBtn.onclick = () => closeMapOverlay(groupOverlay);
@@ -289,6 +352,29 @@ function initMapOverlays() {
   if (shareBtn) {
     shareBtn.onclick = async () => {
       await shareReportText(activeReport);
+    };
+  }
+
+  if (deleteBtn) {
+    deleteBtn.onclick = () => {
+      const rid = resolveReportStorageId(activeReport);
+      if (!rid) {
+        setStatus("Не вдалося знайти запис у журналі для видалення.");
+        return;
+      }
+      const ok = window.confirm(
+        "Видалити цей звіт з архіву на пристрої? Дію не можна скасувати."
+      );
+      if (!ok) return;
+
+      deleteReportsByIds([rid]);
+      setStatus("Звіт видалено з архіву.");
+
+      activeReport = null;
+      activeMissionGroup = null;
+      closeMapOverlay(reportOverlay);
+      closeMapOverlay(groupOverlay);
+      renderReportsOnMap();
     };
   }
 }
@@ -454,6 +540,11 @@ export function initMapScreen() {
 
   initMapOverlays();
 
+  const fsBtn = $("mapToggleFullscreen");
+  if (fsBtn) {
+    fsBtn.onclick = () => setMapLayoutExpanded(!mapLayoutExpanded);
+  }
+
   map = window.L.map(mapEl, {
     zoomControl: true,
     attributionControl: true,
@@ -484,6 +575,14 @@ export function onMapScreenShown() {
 
   // Leaflet needs a size refresh when map was hidden.
   window.setTimeout(() => {
+    if (mapLayoutExpanded) {
+      const screenEl = $("screen-map");
+      const titleEl = $("title");
+      if (screenEl && titleEl) {
+        const topPx = Math.ceil(titleEl.getBoundingClientRect().bottom + 4);
+        screenEl.style.setProperty("--map-fs-top", `${topPx}px`);
+      }
+    }
     map.invalidateSize();
     renderReportsOnMap();
   }, 60);

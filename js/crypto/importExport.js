@@ -5,7 +5,7 @@
  * @module crypto/importExport
  */
 
-import { loadReports, saveReports } from "../history.js";
+import { loadReports, saveReports, newReportId } from "../history.js";
 import { REPORTS_LIMIT } from "../constants.js";
 import { encryptJSON, decryptJSON } from "./crypto.js";
 
@@ -23,8 +23,21 @@ function isValidReport(item) {
     typeof item.ts === "string" &&
     typeof item.text === "string" &&
     item.ts.trim() !== "" &&
-    item.text.trim() !== ""
+    item.text.trim() !== "" &&
+    (item.id === undefined || typeof item.id === "string")
   );
+}
+
+/**
+ * @param {{ ts: string, text: string, id?: string }} report
+ * @returns {{ id: string, ts: string, text: string }}
+ */
+function withStableId(report) {
+  const id =
+    report.id && String(report.id).trim()
+      ? String(report.id).trim()
+      : newReportId();
+  return { id, ts: report.ts, text: report.text };
 }
 
 /**
@@ -75,11 +88,13 @@ function mergeReports(currentReports, importedReports) {
   const map = new Map();
 
   for (const report of currentReports) {
-    map.set(makeReportKey(report), report);
+    const r = withStableId(report);
+    map.set(makeReportKey(r), r);
   }
 
   for (const report of importedReports) {
-    map.set(makeReportKey(report), report);
+    const r = withStableId(report);
+    map.set(makeReportKey(r), r);
   }
 
   const merged = Array.from(map.values());

@@ -5,7 +5,7 @@
  */
 
 import { $ } from "./utils.js";
-import { onMapScreenShown } from "./screens/map.js";
+import { onMapScreenShown, resetMapLayout } from "./screens/map.js";
 
 /** Known screen ids. Допустимые идентификаторы экранов. */
 const SCREEN_IDS = ["main", "journal", "settings", "map", "help"];
@@ -109,6 +109,10 @@ export function initNavigation() {
  */
 export function navigateTo(screenId) {
   if (!SCREEN_IDS.includes(screenId)) return;
+
+  if (screenId !== "map") {
+    resetMapLayout();
+  }
 
   currentScreenId = screenId;
 

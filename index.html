@@ -183,6 +183,8 @@ readonly></textarea>
 Показати
 </button>
 
+<div class="journal-filter-count" id="journalFilterCount" aria-live="polite"></div>
+
 <div id="dashboard">
 
 <div class="dashboard-kpi">
@@ -214,12 +216,14 @@ readonly></textarea>
 <button id="tabJournal" class="tab" type="button">Журнал</button>
 </div>
 
+<p class="journal-archive-info" id="journalArchiveInfo" role="status"></p>
+
 <div id="statsSection">
 <div id="barsContainer"></div>
 <div class="journal-summary" id="journalSummary"></div>
 
 <button class="btn" type="button" id="btnCopyJournalSummary">
-Copy summary
+Копіювати зведення
 </button>
 </div>
 
@@ -237,7 +241,23 @@ autocomplete="off"
 
 <div class="journal-toolbar">
 <button class="btn" type="button" id="btnJournalCopyAll">
-Copy all
+Копіювати всі зі списку
+</button>
+<button
+  class="btn journal-btn-danger"
+  type="button"
+  id="btnJournalDeleteFiltered"
+  title="Лишаються всі звіти, які зараз не потрапили до списку через період або пошук."
+>
+Видалити звіти зі списку
+</button>
+<button
+  class="btn journal-btn-danger"
+  type="button"
+  id="btnJournalDeleteAll"
+  title="Видаляє всі звіти з localStorage цього браузера. Не стосується експортованих файлів."
+>
+Видалити всі звіти
 </button>
 </div>
 
@@ -246,6 +266,17 @@ class="journal-cards"
 id="journalCards"
 aria-label="Звіти у періоді"
 ></div>
+
+<dialog class="journal-edit-dialog" id="journalEditDialog" aria-labelledby="journalEditTitle">
+  <div class="journal-edit-inner">
+    <div class="journal-edit-title" id="journalEditTitle">Редагування звіту</div>
+    <textarea id="journalEditTextarea" class="journal-edit-textarea" rows="16" spellcheck="false"></textarea>
+    <div class="journal-edit-actions">
+      <button type="button" class="btn" id="journalEditCancel">Скасувати</button>
+      <button type="button" class="btn btn-apply" id="journalEditSave">Зберегти</button>
+    </div>
+  </div>
+</dialog>
 
 </div>
 
@@ -312,18 +343,31 @@ title="Зберегти зміни"
 <!-- Screen 4 (MAP) -->
 <div class="screen screenHidden" id="screen-map">
 
-<div class="card">
+<div class="card map-screen-card">
 
-<h2 style="margin-top:0;">Карта місій</h2>
+<div class="map-screen-top">
+<button
+  type="button"
+  class="map-fullscreen-toggle"
+  id="mapToggleFullscreen"
+  aria-expanded="false"
+  title="Розгорнути мапу"
+  aria-label="Розгорнути мапу на весь екран"
+>
+  <svg class="map-fs-ico map-fs-ico-expand" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+  </svg>
+  <svg class="map-fs-ico map-fs-ico-collapse" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+  </svg>
+</button>
+</div>
 
 <div id="mapStatus" class="status">
 Мапа ще не ініціалізована
 </div>
 
-<div
-id="map"
-style="width:100%; height:420px; margin-top:10px; border-radius:12px; overflow:hidden;"
-></div>
+<div id="map" class="map-leaflet-host"></div>
 
 </div>
 </div>
@@ -386,12 +430,12 @@ style="width:100%; height:420px; margin-top:10px; border-radius:12px; overflow:h
 
 <p><em>Вкладка «Статистика»:</em></p>
 <p>
-Зведення за період: кількість по бортах, боєприпасах, типах місій та результатах. Результати автоматично нормалізуються (наприклад, «Ураження цілі», «Ураження укриття» зараховуються як одна категорія «Ураження»). Кнопка Copy summary копіює зведення.
+Зведення за період: кількість по бортах, боєприпасах, типах місій та результатах. Результати автоматично нормалізуються (наприклад, «Ураження цілі», «Ураження укриття» зараховуються як одна категорія «Ураження»). Кнопка «Копіювати зведення» копіює цей текст.
 </p>
 
 <p><em>Вкладка «Журнал»:</em></p>
 <p>
-Список звітів картками. Пошук по тексту (фільтрація в реальному часі). Для кожного звіту — кнопки Copy і Share. Кнопка Copy all копіює всі звіти одним блоком.
+Список звітів картками. Пошук за текстом (оновлюється під час введення). На картці: «Копіювати», «Поділитися», «Змінити». Кнопка «Копіювати всі зі списку» збирає текст усіх карток поточного списку. «Видалити звіти зі списку» прибирає лише ті записи, що зараз видимі після періоду та пошуку; «Видалити всі звіти» — очищає весь архів у цьому браузері.
 </p>
 
 <hr class="help-divider">
@@ -607,8 +651,24 @@ data-screen-menu-close
     <div class="map-overlay-subtitle map-report-subtitle" id="mapReportSubtitle"></div>
 
     <div class="map-report-actions">
-      <button class="btn" type="button" id="mapReportCopyBtn">Копіювати</button>
-      <button class="btn" type="button" id="mapReportShareBtn">Поділитися</button>
+      <div class="map-report-actions-primary">
+        <button class="btn" type="button" id="mapReportCopyBtn">Копіювати</button>
+        <button class="btn" type="button" id="mapReportShareBtn">Поділитися</button>
+      </div>
+      <button
+        class="map-report-delete-icon"
+        type="button"
+        id="mapReportDeleteBtn"
+        title="Видалити звіт з архіву"
+        aria-label="Видалити звіт з архіву"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 6h18"/>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          <path d="M10 11v7M14 11v7"/>
+        </svg>
+      </button>
     </div>
 
     <div class="map-report-content-wrap">

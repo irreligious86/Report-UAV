@@ -4,8 +4,14 @@
  * @module screens/journal
  */
 
-import { $ } from "../utils.js";
-import { loadReports } from "../history.js";
+import { $, isoToDDMMYYYY } from "../utils.js";
+import {
+  loadReports,
+  deleteAllReports,
+  deleteReportsByIds,
+  updateReportText,
+} from "../history.js";
+import { REPORTS_LIMIT, STORAGE_KEY_REPORTS } from "../constants.js";
 import {
   loadPeriodFilter,
   savePeriodFilter,
@@ -21,6 +27,29 @@ import {
 
 let initialized = false;
 
+/** @type {string|null} */
+let editingReportId = null;
+
+/**
+ * Same filtering as the journal list (period + search).
+ * @param {Array<{ id: string, ts: string, text: string }>} reports
+ * @param {{fromDate:string,toDate:string,fromTime:string,toTime:string}} period
+ * @param {string} searchStr
+ */
+function filterReportsForJournal(reports, period, searchStr) {
+  const q = (searchStr || "").trim().toLowerCase();
+  return reports.filter((r) => {
+    const impactMs = getImpactTimestampForReport(r);
+    if (impactMs == null) return false;
+    if (!isWithinPeriodFilter(impactMs, period)) return false;
+    if (q) {
+      const hay = (r.text || "").toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
 /**
  * Initializes the journal/statistics screen once.
  * Ініціалізує екран журналу та статистики (одноразово).
@@ -28,6 +57,10 @@ let initialized = false;
 export function initJournalScreen() {
   if (initialized) return;
   initialized = true;
+
+  window.addEventListener("reportsUpdated", () => {
+    renderForSelectedPeriod();
+  });
 
   // Sync shared period filter into inputs on first load.
   applySharedFilterToInputs();
@@ -108,6 +141,47 @@ export function initJournalScreen() {
       importInput.value = "";
     });
   }
+
+  const btnDelFiltered = $("btnJournalDeleteFiltered");
+  if (btnDelFiltered) {
+    btnDelFiltered.onclick = () => {
+      const period = loadPeriodFilter();
+      const searchStr = (($("journalSearch")?.value) || "").trim();
+      const reports = loadReports();
+      const filtered = filterReportsForJournal(reports, period, searchStr);
+      if (filtered.length === 0) {
+        window.alert(
+          "Немає що видаляти: за цим періодом і пошуком список порожній. Спробуйте змінити умови або переконайтеся, що в архіві є звіти."
+        );
+        return;
+      }
+      const ok = window.confirm(
+        `Видалити ${filtered.length} звіт(ів) зі списку нижче (те саме, що зараз показує період і пошук)? Інші збережені звіти залишаться. Це незворотно.`
+      );
+      if (!ok) return;
+      deleteReportsByIds(filtered.map((r) => r.id));
+      renderForSelectedPeriod();
+    };
+  }
+
+  const btnDelAll = $("btnJournalDeleteAll");
+  if (btnDelAll) {
+    btnDelAll.onclick = () => {
+      const n = loadReports().length;
+      if (n === 0) {
+        window.alert("Архів уже порожній.");
+        return;
+      }
+      const ok = window.confirm(
+        `Видалити всі ${n} звіт(ів) у архіві цього браузера? Записи не можна буде відновити.`
+      );
+      if (!ok) return;
+      deleteAllReports();
+      renderForSelectedPeriod();
+    };
+  }
+
+  setupEditDialog();
 }
 
 /**
@@ -203,25 +277,24 @@ function renderForSelectedPeriod() {
 
   const summaryEl = $("journalSummary");
   const cardsEl = $("journalCards"); // NEW container
+  const archiveEl = $("journalArchiveInfo");
   if (!summaryEl || !cardsEl) return;
 
-  const searchStr = (($("journalSearch")?.value) || "").trim().toLowerCase();
+  const searchRaw = (($("journalSearch")?.value) || "").trim();
 
   const reports = loadReports();
 
-  const filtered = reports.filter((r) => {
-    const impactMs = getImpactTimestampForReport(r);
-    if (impactMs == null) return false;
+  if (archiveEl) {
+    archiveEl.textContent =
+      `Архів на цьому пристрої: ${reports.length} з ${REPORTS_LIMIT} збережених звітів (localStorage цього браузера, ключ ${STORAGE_KEY_REPORTS}). Статистика та журнал показують лише звіти, що відповідають періоду й пошуку.`;
+  }
 
-    if (!isWithinPeriodFilter(impactMs, period)) return false;
+  const filtered = filterReportsForJournal(reports, period, searchRaw);
 
-    if (searchStr) {
-      const hay = (r.text || "").toLowerCase();
-      if (!hay.includes(searchStr)) return false;
-    }
-
-    return true;
-  });
+  const filterCountEl = $("journalFilterCount");
+  if (filterCountEl) {
+    filterCountEl.textContent = `Відібрано звітів: ${filtered.length} із ${reports.length} у архіві (період, час завершення та пошук).`;
+  }
 
   // Newest first (by mission end time)
   filtered.sort((a, b) => {
@@ -257,12 +330,20 @@ function renderForSelectedPeriod() {
   for (const item of filtered) {
     const parsed = parseReportText(item.text);
 
-    const datePart =
+    const dateIso =
       normalizeDateToISO(parsed.date || "") ||
       String(item.ts || "").slice(0, 10) ||
-      (parsed.date || "");
+      "";
 
-    const header = `${datePart} — ${parsed.crew || ""}`.trim();
+    const dateHuman =
+      (parsed.date && /^\d{1,2}\.\d{1,2}\.\d{4}$/.test(String(parsed.date).trim())
+        ? String(parsed.date).trim()
+        : "") ||
+      isoToDDMMYYYY(dateIso) ||
+      dateIso;
+
+    const crewLabel = (parsed.crew || "").trim() || "Звіт";
+    const cardSummary = dateHuman ? `${crewLabel} · ${dateHuman}` : crewLabel;
 
     allTexts.push(item.text);
 
@@ -285,9 +366,9 @@ function renderForSelectedPeriod() {
     const head = document.createElement("div");
     head.className = "journal-card-head";
 
-    const title = document.createElement("div");
-    title.className = "journal-card-title";
-    title.textContent = header;
+    const summary = document.createElement("div");
+    summary.className = "journal-card-summary";
+    summary.textContent = cardSummary;
 
     const actions = document.createElement("div");
     actions.className = "journal-card-actions";
@@ -295,13 +376,13 @@ function renderForSelectedPeriod() {
     const btnCopyOne = document.createElement("button");
     btnCopyOne.type = "button";
     btnCopyOne.className = "btnSmall";
-    btnCopyOne.textContent = "Copy";
+    btnCopyOne.textContent = "Копіювати";
     btnCopyOne.onclick = () => copyTextSmart(item.text);
 
     const btnShare = document.createElement("button");
     btnShare.type = "button";
     btnShare.className = "btnSmall";
-    btnShare.textContent = "Share";
+    btnShare.textContent = "Поділитися";
     btnShare.onclick = async () => {
       if (navigator.share) {
         try {
@@ -314,10 +395,17 @@ function renderForSelectedPeriod() {
       }
     };
 
+    const btnEdit = document.createElement("button");
+    btnEdit.type = "button";
+    btnEdit.className = "btnSmall";
+    btnEdit.textContent = "Змінити";
+    btnEdit.onclick = () => openEditDialog(item.id, item.text);
+
     actions.appendChild(btnCopyOne);
     actions.appendChild(btnShare);
+    actions.appendChild(btnEdit);
 
-    head.appendChild(title);
+    head.appendChild(summary);
     head.appendChild(actions);
 
     const body = document.createElement("div");
@@ -488,6 +576,64 @@ function updateKPI(total, hits, loss) {
 
   const rate = total ? Math.round((hits / total) * 100) : 0;
   if (kRate) kRate.textContent = `${rate}%`;
+}
+
+/**
+ * @param {string} id
+ * @param {string} text
+ */
+function openEditDialog(id, text) {
+  const dialog = $("journalEditDialog");
+  const ta = $("journalEditTextarea");
+  if (!(dialog instanceof HTMLDialogElement) || !(ta instanceof HTMLTextAreaElement)) {
+    return;
+  }
+  editingReportId = id;
+  ta.value = text || "";
+  dialog.showModal();
+  ta.focus();
+}
+
+function setupEditDialog() {
+  const dialog = $("journalEditDialog");
+  const ta = $("journalEditTextarea");
+  const btnCancel = $("journalEditCancel");
+  const btnSave = $("journalEditSave");
+
+  const closeDialog = () => {
+    if (dialog instanceof HTMLDialogElement) dialog.close();
+  };
+
+  if (dialog instanceof HTMLDialogElement) {
+    dialog.addEventListener("close", () => {
+      editingReportId = null;
+    });
+  }
+
+  if (btnCancel) {
+    btnCancel.onclick = () => closeDialog();
+  }
+
+  if (btnSave && ta instanceof HTMLTextAreaElement) {
+    btnSave.onclick = () => {
+      if (!editingReportId) {
+        closeDialog();
+        return;
+      }
+      const body = ta.value;
+      if (!body.trim()) {
+        window.alert("Текст звіту не може бути порожнім.");
+        return;
+      }
+      const id = editingReportId;
+      const ok = updateReportText(id, { text: body });
+      if (!ok) {
+        window.alert("Не вдалося зберегти: запис не знайдено.");
+      }
+      closeDialog();
+      renderForSelectedPeriod();
+    };
+  }
 }
 
 /**
