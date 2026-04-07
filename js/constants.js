@@ -16,7 +16,12 @@ export const STORAGE_KEY_COUNTER = "uav_report_counter_v13";
 /** Подстановочный текст для поля «Стрім», если оно пустое. */
 export const STREAM_PLACEHOLDER = "---";
 
-/** Maximum number of reports in IndexedDB; older entries are dropped on bulk import. */
+/** localStorage key for the report history array. */
+/** Ключ localStorage для массива истории отчётов. */
+export const STORAGE_KEY_REPORTS = "uav_report_history_v1";
+
+/** Maximum number of reports to keep in history; older entries are dropped. */
+/** Максимальное количество отчётов в истории; старые записи удаляются. */
 export const REPORTS_LIMIT = 500;
 
 /** localStorage key for user overrides of config.json lists/defaults (settings screen). */
@@ -29,7 +34,3 @@ export const STORAGE_KEY_STREAMS = "uav_report_streams_v1";
 
 /** Збережений вибір базового шару карти (підпис у перемикачі шарів). */
 export const STORAGE_KEY_MAP_BASEMAP = "uav_map_basemap_label_v1";
-
-/** Stable device id for sync / Sheets attribution (one per browser). */
-export const STORAGE_KEY_DEVICE_ID = "uav_device_id_v1";
-

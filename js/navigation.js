@@ -6,10 +6,9 @@
 
 import { $, refreshMissionDateForNewDay } from "./utils.js";
 import { onMapScreenShown, resetMapLayout } from "./screens/map.js";
-import { resetJournalListLayout } from "./screens/journal.js";
 
-/** Known screen ids (order matches the menu). */
-const SCREEN_IDS = ["main", "journal", "data", "map", "settings", "help"];
+/** Known screen ids. Допустимые идентификаторы экранов. */
+const SCREEN_IDS = ["main", "journal", "settings", "map", "help"];
 
 /** Current active screen id. Текущий активный экран. */
 let currentScreenId = "main";
@@ -114,9 +113,6 @@ export function navigateTo(screenId) {
   if (screenId !== "map") {
     resetMapLayout();
   }
-  if (screenId !== "journal") {
-    resetJournalListLayout();
-  }
 
   currentScreenId = screenId;
 
@@ -151,14 +147,11 @@ export function navigateTo(screenId) {
       case "journal":
         titleEl.textContent = "Журнал та статистика";
         break;
-      case "data":
-        titleEl.textContent = "Дані та інтеграція";
+      case "settings":
+        titleEl.textContent = "Налаштування списків";
         break;
       case "map":
         titleEl.textContent = "Карта місій";
-        break;
-      case "settings":
-        titleEl.textContent = "Налаштування списків";
         break;
       case "help":
         titleEl.textContent = "Довідка та контакти";
@@ -169,16 +162,11 @@ export function navigateTo(screenId) {
     }
   }
 
-  if (currentScreenId === "main") {
-    refreshMissionDateForNewDay();
-  }
-
   if (currentScreenId === "map") {
     onMapScreenShown();
   }
 
-  // Close the menu overlay when navigating.
-  if (menuElement) {
-    menuElement.classList.remove("is-visible");
+  if (currentScreenId === "main") {
+    refreshMissionDateForNewDay();
   }
 }
