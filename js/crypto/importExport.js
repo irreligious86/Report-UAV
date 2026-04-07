@@ -1,237 +1,220 @@
 /**
- * Encrypted reports import/export helpers.
- * Reads reports via history.js, encrypts them into a downloadable file,
- * and imports encrypted files back through the same storage layer.
+ * Encrypted export / import for Report UAV v2 (IndexedDB).
+ *
+ * Export: serialises all reports → encrypts with AES-GCM → downloads .json file.
+ * Import: reads .json file → decrypts → validates → merges with existing DB →
+ *         replaces all records (newest-wins by id, capped at REPORTS_LIMIT).
+ *
+ * Legacy v1 archives (kind: "uav-reports-export", plain id/ts/text shape) are
+ * also accepted on import — conversion is handled by legacy-import.js.
+ *
  * @module crypto/importExport
  */
 
-import { loadReports, saveReports, newReportId } from "../history.js";
 import { REPORTS_LIMIT } from "../constants.js";
+import { generateReportId } from "../report-model.js";
+import { normalizeFields, buildReportText } from "../report-format.js";
+import { listReports } from "../report-actions.js";
+import { replaceAllReports } from "../reports-store.js";
 import { encryptJSON, decryptJSON } from "./crypto.js";
+import {
+  isLegacyEncryptedExport,
+  isLegacyExportByReportShapes,
+  legacyEncryptedExportToReports,
+} from "./legacy-import.js";
 
-const EXPORT_FILE_NAME = "uav_reports.enc.json";
+const EXPORT_FILE_NAME = "uav_reports_v2.enc.json";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Validation helpers
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Checks whether a value looks like a valid report object.
+ * Minimal structural check — does not validate field contents.
  * @param {unknown} item
- * @returns {boolean}
+ * @returns {item is import("../report-model.js").Report}
  */
 function isValidReport(item) {
-  return (
-    !!item &&
-    typeof item === "object" &&
-    typeof item.ts === "string" &&
-    typeof item.text === "string" &&
-    item.ts.trim() !== "" &&
-    item.text.trim() !== "" &&
-    (item.id === undefined || typeof item.id === "string")
-  );
+  if (!item || typeof item !== "object") return false;
+  const r = /** @type {Record<string, unknown>} */ (item);
+  if (typeof r.id !== "string" || !r.id.trim()) return false;
+  if (typeof r.createdAt !== "string" || !r.createdAt.trim()) return false;
+  if (typeof r.updatedAt !== "string" || !r.updatedAt.trim()) return false;
+  if (typeof r.text !== "string" || !r.text.trim()) return false;
+  if (!r.fields || typeof r.fields !== "object") return false;
+  if (typeof r.version !== "number" || r.version < 1) return false;
+  if (typeof r.syncStatus !== "string") return false;
+  return true;
 }
 
 /**
- * @param {{ ts: string, text: string, id?: string }} report
- * @returns {{ id: string, ts: string, text: string }}
+ * Coerce a raw object into a Report: re-normalise fields, rebuild text.
+ * Returns null if the item fails validation.
+ * @param {unknown} raw
+ * @returns {import("../report-model.js").Report|null}
  */
-function withStableId(report) {
-  const id =
-    report.id && String(report.id).trim()
-      ? String(report.id).trim()
-      : newReportId();
-  return { id, ts: report.ts, text: report.text };
+function coerceReport(raw) {
+  if (!isValidReport(raw)) return null;
+  const r = /** @type {import("../report-model.js").Report} */ (raw);
+  const fields = normalizeFields(r.fields);
+  const text = buildReportText(fields);
+  return { ...r, fields, text };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Payload parsing
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Validates the decrypted payload structure.
- * Supports either:
- *   1) array of reports
- *   2) object with { reports: [...] }
- *
+ * Extract a list of Report objects from a decrypted payload.
+ * Accepts: legacy-v1 shape, plain array, or v2 {reports:[…]} envelope.
  * @param {unknown} payload
- * @returns {Array<{ ts: string, text: string }>}
+ * @returns {import("../report-model.js").Report[]}
  */
 function extractReportsArray(payload) {
+  // Legacy v1 format
+  if (isLegacyEncryptedExport(payload) || isLegacyExportByReportShapes(payload)) {
+    return legacyEncryptedExportToReports(payload);
+  }
+
+  // Plain array of v2 reports
   if (Array.isArray(payload)) {
-    if (!payload.every(isValidReport)) {
-      throw new Error("Decrypted JSON contains invalid report items.");
-    }
-    return payload;
+    const out = payload.map(coerceReport).filter(Boolean);
+    if (!out.length) throw new Error("Файл не містить коректних звітів для імпорту.");
+    return /** @type {import("../report-model.js").Report[]} */ (out);
   }
 
-  if (payload && typeof payload === "object" && Array.isArray(payload.reports)) {
-    if (!payload.reports.every(isValidReport)) {
-      throw new Error("Decrypted JSON contains invalid report items.");
-    }
-    return payload.reports;
+  // v2 envelope: { kind, version, reports: [...] }
+  if (payload && typeof payload === "object" && Array.isArray(
+    /** @type {Record<string,unknown>} */ (payload).reports
+  )) {
+    const out = /** @type {unknown[]} */ (
+      /** @type {Record<string,unknown>} */ (payload).reports
+    ).map(coerceReport).filter(Boolean);
+    if (!out.length) throw new Error("Файл не містить коректних звітів для імпорту.");
+    return /** @type {import("../report-model.js").Report[]} */ (out);
   }
 
-  throw new Error("Decrypted JSON has unsupported structure.");
+  throw new Error("Невідома структура JSON файлу.");
 }
 
-/**
- * Builds a stable dedupe key for a report.
- * @param {{ ts: string, text: string }} report
- * @returns {string}
- */
-function makeReportKey(report) {
-  return `${report.ts}__${report.text}`;
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Merge strategy: newest-wins by id, sorted by createdAt, capped at limit
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Merges reports without duplicates.
- * Keeps chronological order by timestamp if possible.
- *
- * @param {Array<{ ts: string, text: string }>} currentReports
- * @param {Array<{ ts: string, text: string }>} importedReports
- * @returns {Array<{ ts: string, text: string }>}
+ * Merge current DB reports with imported ones.
+ * Imported records overwrite existing records with the same id.
+ * @param {import("../report-model.js").Report[]} current
+ * @param {import("../report-model.js").Report[]} imported
+ * @returns {import("../report-model.js").Report[]}
  */
-function mergeReports(currentReports, importedReports) {
+function mergeReports(current, imported) {
   const map = new Map();
-
-  for (const report of currentReports) {
-    const r = withStableId(report);
-    map.set(makeReportKey(r), r);
+  for (const r of current) {
+    const id = (typeof r.id === "string" && r.id.trim()) ? r.id.trim() : generateReportId();
+    map.set(id, { ...r, id });
   }
-
-  for (const report of importedReports) {
-    const r = withStableId(report);
-    map.set(makeReportKey(r), r);
+  for (const r of imported) {
+    const id = (typeof r.id === "string" && r.id.trim()) ? r.id.trim() : generateReportId();
+    map.set(id, { ...r, id });
   }
-
-  const merged = Array.from(map.values());
-
-  merged.sort((a, b) => {
-    const aMs = Date.parse(a.ts);
-    const bMs = Date.parse(b.ts);
-
-    if (Number.isNaN(aMs) && Number.isNaN(bMs)) return 0;
-    if (Number.isNaN(aMs)) return 1;
-    if (Number.isNaN(bMs)) return -1;
-
-    return aMs - bMs;
-  });
-
-  if (merged.length > REPORTS_LIMIT) {
-    return merged.slice(-REPORTS_LIMIT);
-  }
-
-  return merged;
+  const merged = Array.from(map.values()).sort(
+    (a, b) => (Date.parse(a.createdAt || "") || 0) - (Date.parse(b.createdAt || "") || 0)
+  );
+  return merged.length > REPORTS_LIMIT ? merged.slice(-REPORTS_LIMIT) : merged;
 }
 
-/**
- * Converts a string into a downloadable JSON file.
- * @param {string} content
- * @param {string} fileName
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// File helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
 function downloadTextFile(content, fileName) {
   const blob = new Blob([content], { type: "application/json" });
   const url = URL.createObjectURL(blob);
-
   const a = document.createElement("a");
   a.href = url;
   a.download = fileName;
   a.style.display = "none";
-
   document.body.appendChild(a);
   a.click();
   a.remove();
-
   URL.revokeObjectURL(url);
 }
 
-/**
- * Reads a File object as text.
- * @param {File} file
- * @returns {Promise<string>}
- */
+/** @param {File} file @returns {Promise<string>} */
 function readFileAsText(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-
-    reader.onload = () => {
-      resolve(String(reader.result || ""));
-    };
-
-    reader.onerror = () => {
-      reject(new Error("Failed to read selected file."));
-    };
-
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Не вдалося прочитати файл."));
     reader.readAsText(file);
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Public API
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Exports current reports into an encrypted JSON file.
- *
- * Output structure before encryption:
- * {
- *   kind: "uav-reports-export",
- *   version: 1,
- *   exportedAt: "...",
- *   reports: [...]
- * }
- *
+ * Encrypt all reports and trigger a .json file download.
  * @param {string} passphrase
  * @returns {Promise<{ fileName: string, count: number }>}
  */
 export async function exportEncryptedReports(passphrase) {
-  const reports = loadReports();
-
-  const exportPayload = {
-    kind: "uav-reports-export",
-    version: 1,
+  const reports = await listReports();
+  const payload = {
+    kind: "uav-reports-export-v2",
+    version: 2,
     exportedAt: new Date().toISOString(),
     reports,
   };
-
-  const encryptedPayload = await encryptJSON(exportPayload, passphrase);
-  const fileContent = JSON.stringify(encryptedPayload, null, 2);
-
-  downloadTextFile(fileContent, EXPORT_FILE_NAME);
-
-  return {
-    fileName: EXPORT_FILE_NAME,
-    count: reports.length,
-  };
+  const encrypted = await encryptJSON(payload, passphrase);
+  downloadTextFile(JSON.stringify(encrypted, null, 2), EXPORT_FILE_NAME);
+  return { fileName: EXPORT_FILE_NAME, count: reports.length };
 }
 
 /**
- * Imports reports from an encrypted JSON file and merges them into localStorage.
- *
+ * Decrypt a .json file and merge the reports into the local DB.
  * @param {File} file
  * @param {string} passphrase
- * @returns {Promise<{
- *   imported: number,
- *   before: number,
- *   after: number,
- *   added: number
- * }>}
+ * @returns {Promise<{ before: number, imported: number, added: number, after: number }>}
  */
 export async function importEncryptedReports(file, passphrase) {
-  if (!(file instanceof File)) {
-    throw new Error("No file selected.");
-  }
+  if (!(file instanceof File)) throw new Error("Файл не вибрано.");
 
   const fileText = await readFileAsText(file);
-
   let encryptedPayload;
   try {
     encryptedPayload = JSON.parse(fileText);
   } catch {
-    throw new Error("Selected file is not valid JSON.");
+    throw new Error("Файл не є коректним JSON.");
   }
 
-  const decryptedPayload = await decryptJSON(encryptedPayload, passphrase);
-  const importedReports = extractReportsArray(decryptedPayload);
-  const currentReports = loadReports();
-  const mergedReports = mergeReports(currentReports, importedReports);
+  // Decrypt
+  let decrypted;
+  try {
+    decrypted = await decryptJSON(encryptedPayload, passphrase);
+  } catch {
+    throw new Error("Не вдалося розшифрувати файл. Перевірте ключ.");
+  }
 
-  saveReports(mergedReports);
+  // Parse & validate
+  const importedReports = extractReportsArray(decrypted);
+
+  // Merge with current DB
+  const current = await listReports();
+  const before = current.length;
+  const merged = mergeReports(current, importedReports);
+  const after = merged.length;
+
+  // Persist
+  await replaceAllReports(merged);
 
   return {
+    before,
     imported: importedReports.length,
-    before: currentReports.length,
-    after: mergedReports.length,
-    added: mergedReports.length - currentReports.length,
+    added: after - before,
+    after,
   };
 }
-

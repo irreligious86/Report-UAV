@@ -1,10 +1,10 @@
 # Report UAV / Звіт БПЛА
 
 **Report UAV** — lightweight single-page web application for creating structured UAV mission reports in the browser.
-Designed for fast field reporting from mobile devices. Works offline, keeps all data on the user's device.
+Designed for fast field reporting from mobile devices. Works offline-first: reports live in **IndexedDB**; optional **Google Sheets** sync via your own **Apps Script** endpoint.
 
-**Звіт БПЛА** — легкий односторінковий веб-додаток для формування структурованих звітів місій БПЛА прямо в браузері.
-Розрахований на швидке польове звітування з телефону чи планшета. Працює офлайн, усі дані зберігаються лише на пристрої.
+**Звіт БПЛА** — легкий односторінковий веб-додаток для формування структурованих звітів місій БПЛА в браузері.
+Розрахований на швидке польове звітування. Працює офлайн-first: звіти в **IndexedDB**; синхронізація з **Google Таблицями** — лише якщо ви налаштували свій **Apps Script Web App**.
 
 ---
 
@@ -12,18 +12,22 @@ Designed for fast field reporting from mobile devices. Works offline, keeps all 
 
 | Feature | Description |
 |---|---|
-| **Structured reports** | Form: crew, counter, date, drone, mission type, takeoff time, impact/loss time, MGRS coordinates, ammo, stream, result |
-| **Journal & statistics** | Period filter, KPI dashboard (sorties, hits, losses, efficiency), tabs, search, cards with Copy / Share |
-| **Interactive map** | Mission markers grouped by MGRS coordinate; dot for single missions, badge with count for groups; two-level overlay viewer |
-| **Encrypted export / import** | AES-256-GCM + PBKDF2 encrypted JSON file; deduplicated merge on import; portable between devices |
-| **Result normalization** | Raw result strings mapped to standard categories for accurate statistics |
-| **Mobile-first & PWA** | Responsive dark theme, large tap targets, installable as a home screen app |
-| **Offline-ready** | Service Worker caches all assets — works without network after first load |
-| **Local-only storage** | No backend, no telemetry. History, counter, settings live only in browser localStorage |
-| **Configurable lists** | Drones, mission types, ammo, results, MGRS prefixes, streams — all editable in Settings |
-| **Long-press navigation** | Long-press the header to open screen menu |
-| **Crew counter** | Numeric 1–25, auto-increments after each report, persists between sessions |
-| **Empty field alerts** | Required fields highlighted with red glow when left empty |
+| **Structured reports** | Each report is an object: `fields` (crew, date, drone, mission type, times, MGRS, ammo, stream, result), generated `text`, `version`, `syncStatus` |
+| **IndexedDB storage** | Database `report_uav_db_v2`: stores `reports`, `sync_queue`, `settings`, `sync_log` — single source of truth for the journal |
+| **Journal & statistics** | Period filter (from structured date/time), KPI (sorties, hits, losses, efficiency), tabs, search, per-report sync actions |
+| **Google Sheets (optional)** | Settings: sheet URL, Apps Script URL, send mode (manual / immediate / delayed), delay minutes, lock after publish; POST JSON to your endpoint |
+| **Queue & retries** | Offline or failed sends → queued with backoff retries |
+| **Post-publish workflow** | After `sent`, normal edit is blocked; use **correction** flow → `resync_required` → send changes |
+| **Interactive map** | MGRS from `report.fields.coords`; grouped markers; same period filter as journal |
+| **Encrypted export / import** | Format **v2** — file `uav_reports_v2.enc.json`; AES-256-GCM + PBKDF2; merge by **report `id`** |
+| **Result normalization** | Raw result strings mapped to standard categories for statistics |
+| **Mobile-first & PWA** | Responsive dark theme, large tap targets, installable |
+| **Offline-ready** | Service Worker caches assets after first load |
+| **Configurable lists** | Drones, mission types, ammo, results, MGRS prefixes, streams — edited in Settings; overrides in **localStorage** |
+| **Crew counter** | 1–25 in localStorage, auto-increment after each report |
+| **Long-press navigation** | Long-press header → screen menu |
+
+**Legacy import:** encrypted v1 exports (`kind: uav-reports-export` or same report shapes) are merged on import alongside v2.
 
 ---
 
@@ -31,58 +35,32 @@ Designed for fast field reporting from mobile devices. Works offline, keeps all 
 
 ### 1. Форма звіту (Main form)
 
-Головний екран. Поля форми:
-
-- **Екіпаж** — позивний екіпажу (текст) + **лічильник** (1–25, зберігається між сесіями, автоінкремент після формування звіту)
-- **Дата** — дата місії (date picker)
-- **Борт** — вибір зі списку або утримати для вільного вводу
-- **Характер** — тип місії (вибір або вільний ввод)
-- **Час зльоту** — з кнопкою «Зараз»
-- **Час ураження/втрати** — з кнопкою «Зараз»
-- **Координати** — MGRS (префікс + easting + northing, по 5 цифр)
-- **Боєприпас** — вибір або вільний ввод
-- **Стрім** — посилання або "---"
-- **Результат** — вибір або вільний ввод
-
-Кнопка **«Готово»** формує текст звіту, копіює його в буфер обміну та зберігає в журнал.
+Same fields as before. **«Готово»** validates, builds a **Report**, saves to IndexedDB, shows/copies text, updates crew counter and form date. Send behaviour depends on **sync settings** (manual / immediate / delayed).
 
 ### 2. Журнал та статистика (Journal & statistics)
 
-- **Фільтр за періодом** — дата та час початку/кінця (за замовчуванням — поточний місяць). Фільтрація за полем «Час ураження/втрати».
-- **KPI-панель** — вильотів, уражень, втрат, ефективність (%).
-- **Вкладка «Статистика»** — зведення по бортах, боєприпасах, типах місій та результатах (з нормалізацією категорій).
-- **Вкладка «Журнал»** — список звітів картками, пошук по тексту, Copy / Share для кожного звіту, Copy all.
-- **Передача даних** — секція внизу екрана:
-  - **Експорт** — шифрує історію звітів (AES-256-GCM, ключ через PBKDF2) і зберігає як `uav_reports.enc.json`. Подвійне підтвердження ключа.
-  - **Імпорт** — зчитує зашифрований файл, перевіряє версію, структуру та кожен запис. Зливає з існуючою історією без дублів (дедуплікація за `ts + text`).
+- Filter by mission **date** + **impact time** (structured fields).
+- KPI and **Statistics** tab aggregate from **`report.fields`**.
+- **Journal** tab: cards with full report text, status dot, icon actions (copy, share, send, edit, etc.).
+- **Send list to sheet**: queues **all visible reports** (except **scheduled**) for Google Sheets POST — including **sent** (re-upsert after an emptied sheet).
 
-### 3. Карта місій (Map)
+### 3. Дані та інтеграція (Data & integration)
 
-- Маркери з координатами MGRS зі звітів обраного періоду.
-- **Одна місія** — компактна цианова точка. Клік → overlay-карточка звіту.
-- **Декілька місій в одній точці** — круглий бейдж з числом:
-  - 2–3: зелений
-  - 4–5: лаймовий
-  - 6+: янтарно-оранжевий
-- Клік по бейджу → overlay зі списком місій (відсортовані за часом). Клік по місії → карточка звіту. Кнопка «Назад» повертає до списку.
-- Карточка звіту: текст, «Копіювати», «Поділитися».
+- **Google Sheets / Apps Script** settings (IndexedDB), test connection, save/reset.
+- **Encrypted** export/import (v2 file; v1 legacy payloads accepted when decrypted).
+- **Delete all reports** (local archive only) — dangerous action grouped here with backup.
 
-### 4. Налаштування списків (Settings)
+### 4. Карта місій (Map)
 
-Редактор локальних списків, що мають пріоритет над `config.json`:
+Markers from **`fields.coords`** for reports in the selected period. Leaflet; base layer switcher; fullscreen control.
 
-- Дрони
-- Типи місій
-- Боєприпаси
-- Результати
-- Префікси MGRS
-- Стріми
+### 5. Налаштування списків (Settings)
 
-Drag-and-drop для порядку. Зміни зберігаються в `localStorage` і застосовуються одразу.
+- **Lists editor** (tabs, drag-and-drop) — stored in `localStorage` with priority over `config.json`.
 
-### 5. Довідка та контакти (Help & contacts)
+### 6. Довідка та контакти (Help)
 
-Інструкція по роботі з додатком та контакти розробника.
+In-app manual and contacts.
 
 ---
 
@@ -90,52 +68,45 @@ Drag-and-drop для порядку. Зміни зберігаються в `loc
 
 ### Як створити звіт
 
-1. Відкрийте додаток (головний екран — Форма звіту).
-2. Заповніть поля. У полях з випадаючим списком (Борт, Характер, Боєприпас, Результат) можна **утримати** для переходу у вільний ввод.
-3. Для швидкого вводу часу натисніть **«Зараз»** біля полів часу.
-4. Координати вводяться у форматі MGRS: виберіть префікс, введіть easting (5 цифр) і northing (5 цифр).
-5. Натисніть **«Готово»** — текст звіту з'явиться в полі «Готовий результат» і буде автоматично скопійований в буфер обміну.
-6. Лічильник екіпажу збільшиться автоматично. Він зберігається між сесіями.
+1. Заповніть форму (утримання на select → вільний ввід; «Зараз» для часу).
+2. **«Готово»** — звіт зберігається локально в IndexedDB.
 
-### Як переглянути історію та статистику
+### Журнал і статистика
 
-1. Довге натискання на заголовок → меню → **«Журнал та статистика»**.
-2. За замовчуванням показано поточний місяць. Змініть дати/час і натисніть **«Показати»**.
-3. **KPI-панель** зверху показує ключові метрики.
-4. Перемикайтесь між **«Статистика»** (зведення) та **«Журнал»** (список звітів).
-5. У журналі: пошук, Copy / Share для кожного звіту, Copy all.
+Меню → **Журнал та статистика**. Період, пошук, «Показати», вкладки Статистика / Журнал. **Відправити список у таблицю** — у чергу йдуть усі відфільтровані звіти, крім відкладених (scheduled); у тому числі вже **надіслані** (повторний запис у таблицю за `report_id`, якщо лист було очищено). Дії на картці залежать від статусу.
 
-### Як працювати з картою
+### Карта
 
-1. Меню → **«Карта»**.
-2. Маркери відповідають координатам зі звітів за обраний період.
-3. Одиночна точка — клік відкриває звіт.
-4. Бейдж з числом — клік відкриває список місій у цій точці, далі — вибір конкретної місії.
+Меню → **Карта**. Ті самі умови періоду, що й у журналі.
 
-### Як експортувати дані
+### Дані, експорт / імпорт
 
-1. На екрані журналу, секція **«Передача даних»** внизу.
-2. Натисніть **«Експорт»**.
-3. Введіть ключ шифрування → підтвердіть його повторно.
-4. Файл `uav_reports.enc.json` буде завантажений. Зберігайте файл і ключ окремо.
+Меню → **Дані та інтеграція**. Файл **`uav_reports_v2.enc.json`**; злиття за **id**. Підтримується також зашифрований експорт **v1** зі старого застосунку. Повне очищення локального архіву — тільки там же (з підтвердженням).
 
-### Як імпортувати дані
+### Google Sheets
 
-1. Натисніть **«Імпорт»** → виберіть `.json` файл.
-2. Введіть ключ, яким файл був зашифрований.
-3. Звіти з файлу буде злито з існуючою історією без дублікатів.
-4. Журнал і карта оновляться автоматично.
+1. **Дані та інтеграція** → блок **Google Sheets**.
+2. URL таблиці (довідково) та **URL веб-додатку Apps Script**.
+3. Режим відправки, затримку, опції блокування.
+4. **Перевірити з’єднання** / **Зберегти**.
 
-### Як змінити списки
+Готовий приклад **doPost**, який записує **один звіт = один рядок** з заголовками в першому рядку: [`docs/apps-script/README.md`](docs/apps-script/README.md) та [`docs/apps-script/Code.gs`](docs/apps-script/Code.gs).
 
-1. Меню → **«Налаштування списків»**.
-2. Виберіть вкладку (Дрони, Боєприпаси тощо).
-3. Додайте, видаліть або перетягніть елементи.
-4. Натисніть 💾 для збереження. Зміни застосовуються одразу.
+### Списки форми
+
+Меню → **Налаштування списків** → вкладки → 💾.
+
+### Перевірка HTML (для розробки)
+
+```bash
+npm run verify
+```
+
+Переконує, що `index.html` містить `js/app.js` і коректно закривається — зменшує ризик зламаного деплою.
 
 ### Навігація
 
-Довге натискання на заголовок **«Звіт по БПЛА»** відкриває меню екранів. Активний екран підсвічується.
+Довге натискання на заголовок **«Звіт по БПЛА»** → меню екранів.
 
 ---
 
@@ -143,53 +114,61 @@ Drag-and-drop для порядку. Зміни зберігаються в `loc
 
 ```text
 Report-UAV/
-├── index.html              # Main page (loads js/app.js as ES module)
-├── styles.css              # Dark theme, responsive layout, map markers, overlays
-├── config.json             # Base lists and default values
-├── manifest.json           # PWA manifest
-├── sw.js                   # Service Worker (offline caching)
-├── LICENSE                 # MIT
+├── index.html
+├── styles.css
+├── config.json
+├── manifest.json
+├── sw.js
+├── LICENSE
 ├── README.md
 │
 └── js/
-    ├── app.js              # Entry point: init all screens and navigation
-    ├── constants.js         # Storage keys, limits, config URL
-    ├── utils.js             # DOM helpers, date/time utils, status, textarea autosize
-    ├── counter.js           # Crew counter (1–25): parse, load/save
-    ├── coords.js            # Coordinate normalization, MGRS string builder
-    ├── clipboard.js         # Copy via Clipboard API or AndroidBridge
-    ├── config.js            # Load config.json, apply overrides, fill selects/datalists
-    ├── history.js           # loadReports / saveReports / addReport (localStorage)
-    ├── filters.js           # Shared period filter, impact timestamp extraction
-    ├── result-mapping.js    # Normalize result strings to standard categories
-    ├── longPressEdit.js     # Long-press on <select> → free-text input
-    ├── generate.js          # Build report text, copy, save, increment counter
-    ├── streams.js           # Known stream values persistence
-    ├── navigation.js        # Screen switching, long-press menu
+    ├── app.js                 # Entry: openDatabase, sync service, screens
+    ├── db.js                  # IndexedDB: report_uav_db_v2
+    ├── constants.js           # Limits, keys (e.g. STORAGE_KEY_DEVICE_ID)
+    ├── utils.js
+    ├── counter.js             # Crew counter (localStorage)
+    ├── coords.js
+    ├── clipboard.js
+    ├── config.js              # config.json + list overrides (localStorage)
+    ├── filters.js             # Period filter; impact time from fields
+    ├── result-mapping.js
+    ├── longPressEdit.js
+    ├── generate.js            # Form → createAndStoreReport
+    ├── streams.js
+    ├── navigation.js
+    ├── report-model.js        # Report entity, ids, status helpers
+    ├── report-format.js       # fields ↔ text, date/time helpers
+    ├── reports-store.js       # CRUD reports
+    ├── settings-store.js      # key/value in IDB
+    ├── sync-settings.js       # Google Sheets integration defaults I/O
+    ├── sync-queue-store.js
+    ├── sync-service.js        # Queue, retries, scheduled sends
+    ├── google-sheets-api.js   # POST to Apps Script
+    ├── report-actions.js      # Facade for UI (list, create, send, edit, import)
     │
     ├── crypto/
-    │   ├── crypto.js        # AES-GCM + PBKDF2 encrypt/decrypt
-    │   └── importExport.js  # Export/import encrypted reports with validation and merge
+    │   ├── crypto.js
+    │   └── importExport.js    # Encrypted v2 export/import
     │
     └── screens/
-        ├── mainForm.js      # Main report form bindings
-        ├── journal.js       # Journal, statistics, KPI, search, cards, export/import UI
-        ├── map.js           # Leaflet map, grouped markers, two-level overlay viewer
-        └── settings.js      # Lists editor (tabs, drag-and-drop, quick save)
+        ├── mainForm.js
+        ├── journal.js
+        ├── map.js
+        └── settings.js        # Lists + integration UI
 ```
 
 ---
 
 ## Configuration / Конфігурація
 
-- **`config.json`** — base lists (`drones`, `missionTypes`, `ammo`, `results`, `mgrsPrefixes`) and defaults (`mgrsPrefix`, `missionType`, `result`).
-- **Local overrides** — stored in `localStorage`, edited via Settings screen, take priority over `config.json`.
+- **`config.json`** — base lists and defaults.
+- **List overrides** — `localStorage`, Settings screen.
+- **Sync integration** — IndexedDB `settings` (via `sync-settings.js` + `settings-store.js`).
 
 ---
 
 ## Running locally / Запуск
-
-Serve over HTTP:
 
 ```bash
 npx serve .
@@ -201,17 +180,24 @@ Do **not** open `index.html` via `file://` — ES modules require HTTP.
 
 ## Privacy & security / Конфіденційність та безпека
 
-- No backend, no telemetry, no external APIs.
-- All data (reports, settings, counter) stored **only** in browser `localStorage`.
-- Encrypted export uses **AES-256-GCM** with key derived via **PBKDF2** (SHA-256, 250 000 iterations).
-- Encryption key is never stored — entered by user at export/import time.
+- No developer backend or telemetry in app code.
+- Reports and sync metadata: **IndexedDB** on device.
+- Crew counter and form list overrides: **localStorage**.
+- **Google Sheets:** data is sent only to the **Apps Script URL you configure**.
+- Export: **AES-256-GCM**, **PBKDF2** (SHA-256, 250 000 iterations); passphrase never stored.
+
+---
+
+## Документація для ШІ (Cursor, Claude, …)
+
+Один файл без дублювання глибоких гайдів: **[`docs/AI-CONTEXT.md`](docs/AI-CONTEXT.md)** — архітектура, модулі, контракти, типові помилки. Решта деталей у цьому README та в `docs/`.
 
 ---
 
 ## Developer / Розробник
 
-Telegram: [t.me/irreligious_86](https://t.me/irreligious_86)
-Email: [irreligious86@gmail.com](mailto:irreligious86@gmail.com)
+Telegram: [t.me/irreligious_86](https://t.me/irreligious_86)  
+Email: [irreligious86@gmail.com](mailto:irreligious86@gmail.com)  
 GitHub: [github.com/irreligious86/Report-UAV](https://github.com/irreligious86/Report-UAV)
 
 ---
@@ -224,10 +210,8 @@ MIT — see [`LICENSE`](LICENSE).
 
 <div align="center">
 
-**Report UAV** — field-tested, offline-first, privacy-respecting.
+**Report UAV** — field-tested, offline-first.
 
-Built for operators. No servers. No tracking. Your data stays yours.
-
-`AES-256-GCM` · `PBKDF2` · `MGRS` · `Leaflet` · `PWA` · `localStorage`
+`IndexedDB` · `AES-256-GCM` · `PBKDF2` · `MGRS` · `Leaflet` · `PWA` · `Apps Script`
 
 </div>
