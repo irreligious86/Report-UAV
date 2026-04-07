@@ -11,7 +11,6 @@ import {
   saveConfigOverrides,
   applyConfigWithOverrides,
 } from "../config.js";
-// Google Sheets integration is handled by screens/data.js
 
 let initialized = false;
 

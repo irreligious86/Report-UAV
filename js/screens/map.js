@@ -4,17 +4,12 @@
  * @module screens/map
  */
 
-import { listReports, deleteReportsByIds } from "../report-actions.js";
+import { loadReports, deleteReportsByIds } from "../history.js";
 import { STORAGE_KEY_MAP_BASEMAP } from "../constants.js";
-import { $, setStatus, isoToDDMMYYYY } from "../utils.js";
+import { $, setStatus } from "../utils.js";
 import { copyText } from "../clipboard.js";
 import { toPoint } from "https://esm.sh/mgrs@2.1.0";
-import {
-  loadPeriodFilter,
-  isWithinPeriodFilter,
-  getImpactTimestampForReport,
-} from "../filters.js";
-import { getImpactTimestampMs } from "../report-format.js";
+import { loadPeriodFilter, isWithinPeriodFilter, getImpactTimestampForReport } from "../filters.js";
 
 let initialized = false;
 let map = null;
@@ -103,31 +98,72 @@ function createMarkerIcon(count) {
   });
 }
 
-function buildMissionListTitle(report) {
-  const f = report?.fields;
-  if (!f) return "Місія";
+function parseReportText(text) {
+  const lines = String(text || "").split("\n");
+  const result = {
+    title: "",
+    date: "",
+    impactTime: "",
+    coords: "",
+  };
+
+  if (lines[0]) result.title = lines[0].trim();
+  if (lines[1]) result.date = lines[1].trim();
+
+  for (const line of lines.slice(2)) {
+    const idx = line.indexOf(":");
+    if (idx === -1) continue;
+
+    const key = line.slice(0, idx).trim();
+    const value = line.slice(idx + 1).trim();
+
+    if (key === "Час ураження/втрати") result.impactTime = value;
+    if (key === "Координати") result.coords = value;
+  }
+
+  return result;
+}
+
+function buildMissionListTitle(reportText) {
+  const parsed = parseReportText(reportText);
   const parts = [];
-  const crewLine =
-    f.crew && f.crewCounter != null ? `${f.crew} (${f.crewCounter})` : f.crew || "";
-  if (crewLine) parts.push(crewLine);
-  if (f.date) parts.push(isoToDDMMYYYY(f.date));
-  if (f.impact) parts.push(f.impact);
+
+  if (parsed.title) parts.push(parsed.title);
+  if (parsed.date) parts.push(parsed.date);
+  if (parsed.impactTime) parts.push(parsed.impactTime);
+
   return parts.join(" • ") || "Місія";
 }
 
-function coordsFromReport(report) {
-  const raw = report?.fields && typeof report.fields.coords === "string"
-    ? report.fields.coords.trim()
-    : "";
-  return raw;
-}
-
 function getSortableMissionTimestamp(report) {
-  if (!report?.fields) return Date.parse(report.createdAt || "") || 0;
-  const ms = getImpactTimestampMs(report.fields);
-  if (ms != null) return ms;
-  const fb = Date.parse(report.createdAt || "");
-  return Number.isNaN(fb) ? 0 : fb;
+  const parsed = parseReportText(report?.text || "");
+
+  if (parsed.date && parsed.impactTime) {
+    const dateParts = parsed.date.split(".");
+    const timeParts = parsed.impactTime.split(":");
+
+    if (dateParts.length === 3 && timeParts.length >= 2) {
+      const day = parseInt(dateParts[0], 10);
+      const month = parseInt(dateParts[1], 10);
+      const year = parseInt(dateParts[2], 10);
+      const hour = parseInt(timeParts[0], 10);
+      const minute = parseInt(timeParts[1], 10);
+
+      const d = new Date(year, month - 1, day, hour || 0, minute || 0, 0, 0);
+      const ms = d.getTime();
+
+      if (!Number.isNaN(ms)) {
+        return ms;
+      }
+    }
+  }
+
+  const fallback = Date.parse(report?.ts || "");
+  if (!Number.isNaN(fallback)) {
+    return fallback;
+  }
+
+  return 0;
 }
 
 function closeMapOverlay(overlayEl) {
@@ -148,8 +184,14 @@ function openMapOverlay(overlayEl) {
  * @returns {string|null}
  */
 function resolveReportStorageId(report) {
-  if (!report?.id) return null;
-  return String(report.id).trim() || null;
+  if (!report) return null;
+  const direct = report.id && String(report.id).trim();
+  if (direct) return direct;
+  const arr = loadReports();
+  const found = arr.find(
+    (r) => r.text === report.text && r.ts === report.ts
+  );
+  return found?.id && String(found.id).trim() ? String(found.id).trim() : null;
 }
 
 async function shareReportText(report) {
@@ -200,8 +242,9 @@ function renderSingleReportOverlay(report, group = null) {
   activeMissionGroup = group;
   activeReport = report || null;
 
-  titleEl.textContent = buildMissionListTitle(report || null);
-  subtitleEl.textContent = coordsFromReport(report || null) || "";
+  const parsed = parseReportText(report?.text || "");
+  titleEl.textContent = buildMissionListTitle(report?.text || "");
+  subtitleEl.textContent = parsed.coords || "";
   contentEl.textContent = report?.text || "";
 
   openMapOverlay(reportOverlay);
@@ -225,19 +268,17 @@ function renderMissionGroupOverlay(group) {
   });
 
   sortedReports.forEach((report, index) => {
-    const impact =
-      report?.fields?.impact && String(report.fields.impact).trim();
-    const c = coordsFromReport(report || null);
+    const parsed = parseReportText(report?.text || "");
 
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "map-mission-item";
 
     btn.innerHTML = `
-      <span class="map-mission-item-title">${escapeHtml(buildMissionListTitle(report || null))}</span>
+      <span class="map-mission-item-title">${escapeHtml(buildMissionListTitle(report?.text || ""))}</span>
       <span class="map-mission-item-meta">
-        ${impact ? `Час: ${escapeHtml(impact)}` : `Місія ${index + 1}`}
-        ${c ? ` • ${escapeHtml(c)}` : ""}
+        ${parsed.impactTime ? `Час: ${escapeHtml(parsed.impactTime)}` : `Місія ${index + 1}`}
+        ${parsed.coords ? ` • ${escapeHtml(parsed.coords)}` : ""}
       </span>
     `;
 
@@ -316,7 +357,7 @@ function initMapOverlays() {
   }
 
   if (deleteBtn) {
-    deleteBtn.onclick = async () => {
+    deleteBtn.onclick = () => {
       const rid = resolveReportStorageId(activeReport);
       if (!rid) {
         setStatus("Не вдалося знайти запис у журналі для видалення.");
@@ -327,16 +368,27 @@ function initMapOverlays() {
       );
       if (!ok) return;
 
-      await deleteReportsByIds([rid]);
+      deleteReportsByIds([rid]);
       setStatus("Звіт видалено з архіву.");
 
       activeReport = null;
       activeMissionGroup = null;
       closeMapOverlay(reportOverlay);
       closeMapOverlay(groupOverlay);
-      void renderReportsOnMap();
+      renderReportsOnMap();
     };
   }
+}
+
+/**
+ * Extracts coordinate line from report text.
+ * Витягує рядок координат із тексту звіту.
+ * @param {string} text
+ * @returns {string}
+ */
+function extractCoords(text) {
+  const match = String(text || "").match(/^Координати:\s*(.+)$/m);
+  return match ? match[1].trim() : "";
 }
 
 /**
@@ -378,14 +430,14 @@ function mgrsToLatLng(mgrsText) {
  * Renders all saved reports as markers on the map.
  * Малює всі збережені звіти як маркери на мапі.
  */
-async function renderReportsOnMap() {
+function renderReportsOnMap() {
   if (!map || !markersLayer) return;
 
   markersLayer.clearLayers();
 
   const statusEl = $("mapStatus");
   const period = loadPeriodFilter();
-  const reports = await listReports();
+  const reports = loadReports();
 
   const filtered = reports.filter((report) => {
     const impactMs = getImpactTimestampForReport(report);
@@ -406,7 +458,7 @@ async function renderReportsOnMap() {
   const groupedByCoords = new Map();
 
   for (const report of filtered) {
-    const coordsText = coordsFromReport(report);
+    const coordsText = extractCoords(report?.text || "");
     if (!coordsText) {
       invalidCount += 1;
       continue;
@@ -563,7 +615,7 @@ export function initMapScreen() {
   markersLayer = window.L.layerGroup().addTo(map);
 
   window.addEventListener("reportsUpdated", () => {
-    void renderReportsOnMap();
+    renderReportsOnMap();
   });
 
   if (statusEl) {
@@ -589,7 +641,7 @@ export function onMapScreenShown() {
       }
     }
     map.invalidateSize();
-    void renderReportsOnMap();
+    renderReportsOnMap();
   }, 60);
 }
 

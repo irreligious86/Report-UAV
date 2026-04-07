@@ -243,17 +243,7 @@ autocomplete="off"
 />
 </label>
 
-<div id="journalListPanel" class="journal-list-panel">
-<div class="journal-toolbar-wrap">
 <div class="journal-toolbar">
-<button
-  class="btn btn-apply"
-  type="button"
-  id="btnJournalEnqueueSheet"
-  title="Усі звіти зі списку (крім відкладених) — у чергу на Google Sheets; уже надіслані підуть повторно (після очищення таблиці)."
->
-Відправити список у таблицю
-</button>
 <button class="btn" type="button" id="btnJournalCopyAll">
 Копіювати всі зі списку
 </button>
@@ -265,36 +255,26 @@ autocomplete="off"
 >
 Видалити звіти зі списку
 </button>
-</div>
+<button
+  class="btn journal-btn-danger"
+  type="button"
+  id="btnJournalDeleteAll"
+  title="Видаляє всі звіти з localStorage цього браузера. Не стосується експортованих файлів."
+>
+Видалити всі звіти
+</button>
 </div>
 
-<div class="journal-list-frame" id="journalListFrame">
-<button
-  type="button"
-  class="journal-list-expand-bar"
-  id="journalListExpandBar"
-  aria-expanded="false"
-  aria-controls="journalCards"
-  title="Розгорнути список на всю висоту екрана"
->
-  <span class="journal-list-expand-grip" aria-hidden="true"></span>
-  <span class="journal-list-expand-text">
-    <span class="journal-list-expand-label journal-list-expand-label--more">Розгорнути список</span>
-    <span class="journal-list-expand-label journal-list-expand-label--less">Згорнути список</span>
-  </span>
-</button>
 <div
 class="journal-cards"
 id="journalCards"
 aria-label="Звіти у періоді"
 ></div>
-</div>
-</div>
 
 <dialog class="journal-edit-dialog" id="journalEditDialog" aria-labelledby="journalEditTitle">
   <div class="journal-edit-inner">
     <div class="journal-edit-title" id="journalEditTitle">Редагування звіту</div>
-    <div id="journalEditFields" class="journal-edit-fields" aria-label="Поля звіту"></div>
+    <textarea id="journalEditTextarea" class="journal-edit-textarea" rows="16" spellcheck="false"></textarea>
     <div class="journal-edit-actions">
       <button type="button" class="btn" id="journalEditCancel">Скасувати</button>
       <button type="button" class="btn btn-apply" id="journalEditSave">Зберегти</button>
@@ -306,104 +286,31 @@ aria-label="Звіти у періоді"
 
 </div>
 
-</div>
-</div>
-
-<!-- Screen 3: Дані та інтеграція -->
-<div class="screen screenHidden" id="screen-data">
-<div class="card">
-
-  <!-- Google Sheets integration -->
-  <div class="data-section">
-    <h2 class="data-section-title">Google Sheets</h2>
-    <p class="data-section-hint">
-      Публікація через веб-додаток Apps Script.
-      <a class="data-section-link" id="syncSheetLink" href="#" target="_blank" rel="noopener" style="display:none;">Відкрити таблицю ↗</a>
-    </p>
-
-    <label class="integration-label">Посилання на таблицю
-      <input type="url" id="syncGoogleSheetUrl" class="integration-input"
-             placeholder="https://docs.google.com/spreadsheets/..." autocomplete="off"/>
-    </label>
-    <label class="integration-label">URL Apps Script (Web App)
-      <input type="url" id="syncAppsScriptUrl" class="integration-input"
-             placeholder="https://script.google.com/macros/s/..." autocomplete="off"/>
-    </label>
-    <label class="integration-label">Режим відправки
-      <select id="syncSendMode" class="integration-input">
-        <option value="manual">Вручну</option>
-        <option value="immediate">Одразу після збереження</option>
-        <option value="delayed">З затримкою</option>
-      </select>
-    </label>
-    <label class="integration-label" id="syncDelayRow">Затримка (хв)
-      <input type="number" id="syncDelayMinutes" class="integration-input" min="0" step="1" max="10080"/>
-    </label>
-    <label class="integration-check">
-      <input type="checkbox" id="syncLockAfterSend"/>
-      Автоблокування після публікації
-    </label>
-    <label class="integration-check">
-      <input type="checkbox" id="syncCorrectionsOnly"/>
-      Лише режим виправлення після відправки
-    </label>
-
-    <div class="integration-actions">
-      <button type="button" class="btn" id="syncTestConnection">Перевірити з’єднання</button>
-      <button type="button" class="btn btn-apply" id="syncSaveSettings">Зберегти</button>
-      <button type="button" class="btn" id="syncResetSettings">Скинути</button>
-    </div>
-    <div class="status" id="integrationStatus" aria-live="polite"></div>
-  </div>
-
-  <!-- Encrypted backup -->
-  <div class="data-section">
-    <h2 class="data-section-title">Резервна копія</h2>
-    <p class="data-section-hint">
-      Зашифрований файл <code>.json</code>. Сумісний із v1 і v2 формату.
-      Ключ шифрування задаєте самостійно — зберігайте його окремо.
-    </p>
-    <div class="data-transfer-row">
-      <button class="data-transfer-btn" type="button" id="btnExportEncrypted">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="17 8 12 3 7 8"/>
-          <line x1="12" y1="3" x2="12" y2="15"/>
-        </svg>
-        <span>Експорт</span>
-      </button>
-      <button class="data-transfer-btn" type="button" id="btnImportEncrypted">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="7 10 12 15 17 10"/>
-          <line x1="12" y1="15" x2="12" y2="3"/>
-        </svg>
-        <span>Імпорт</span>
-      </button>
-    </div>
-    <input type="file" id="importEncryptedFile" accept=".json,application/json" style="display:none;"/>
-    <div class="data-transfer-status" id="dataTransferStatus" aria-live="polite"></div>
-  </div>
-
-  <div class="data-section data-section-danger">
-    <h2 class="data-section-title">Очистити архів</h2>
-    <p class="data-section-hint">
-      Видаляє <strong>усі</strong> звіти з локальної бази (IndexedDB) у цьому браузері. Експортовані файли та таблиця Google не змінюються. Спочатку зробіть резервну копію, якщо потрібно.
-    </p>
-    <button
-      class="btn journal-btn-danger"
-      type="button"
-      id="btnDataDeleteAllReports"
-      title="Незворотно очищає весь журнал на цьому пристрої."
-    >
-      Видалити всі звіти
+<div class="journal-transfer">
+  <div class="journal-transfer-header">Передача даних</div>
+  <div class="journal-transfer-row">
+    <button class="journal-transfer-btn" type="button" id="btnExportEncrypted">
+      <span class="journal-transfer-icon">↑</span>
+      <span class="journal-transfer-label">Експорт</span>
+    </button>
+    <button class="journal-transfer-btn" type="button" id="btnImportEncrypted">
+      <span class="journal-transfer-icon">↓</span>
+      <span class="journal-transfer-label">Імпорт</span>
     </button>
   </div>
+  <input
+    type="file"
+    id="importEncryptedFile"
+    accept=".json,application/json"
+    style="display:none;"
+  />
+  <div class="journal-transfer-status" id="journalTransferStatus"></div>
+</div>
 
 </div>
 </div>
 
-<!-- Screen 4: Налаштування списків -->
+<!-- Screen 3 -->
 <div class="screen screenHidden" id="screen-settings">
 <div class="card">
 
@@ -433,6 +340,7 @@ title="Зберегти зміни"
 <div class="status" id="settingsStatus"></div>
 
 </div>
+
 </div>
 </div>
 
@@ -476,9 +384,9 @@ title="Зберегти зміни"
 <section class="help-section" aria-labelledby="help-h-1">
 <h2 class="help-section-title" id="help-h-1"><span class="help-section-num">1</span><span class="help-section-heading-text">Про застосунок</span></h2>
 
-<p><strong>Звіт БПЛА</strong> — це односторінковий веб-додаток для швидкого складання <em>структурованих</em> звітів про вилоти БПЛА прямо в браузері. Кожен звіт — окремий запис із полями форми, версією та (за потреби) статусом синхронізації з Google Таблицями. Роботу розраховано на польові умови: телефон або планшет, стійка робота без стабільного інтернету після першого завантаження.</p>
+<p><strong>Звіт БПЛА</strong> — це односторінковий веб-додаток для швидкого складання <em>структурованих</em> текстових звітів про вилоти БПЛА прямо в браузері. Його роботу розраховано на польові умови: телефон або планшет, можливість працювати без стабільного інтернету після першого завантаження сторінки.</p>
 
-<p><strong>Звіти</strong> зберігаються в <strong>IndexedDB</strong> (база <code>report_uav_db_v2</code>) — це основне локальне сховище журналу, черги відправки та налаштувань інтеграції. <strong>Лічильник екіпажу</strong> та <strong>перевизначення списків</strong> форми лишаються в <code>localStorage</code> цього браузера. Дані за замовчуванням <strong>не надсилаються</strong> на сервер розробника. Відправка в таблицю — лише на ваш URL Google Apps Script; налаштування в меню <strong>«Дані та інтеграція»</strong> (див. розділ 4). Перенести архів між пристроями: зашифрований експорт/імпорт на тому ж екрані. Зашифровані копії зі старого застосунку (v1) також підтримуються поряд з v2.</p>
+<p>Усі звіти, лічильник екіпажу та ваші правки списків зберігаються <strong>локально</strong> в пам’яті браузера на конкретному пристрої. Дані за замовчуванням нікуди не відправляються — немає звернень до вашого бекенда чи сторонніх аналітичних сервісів у коді застосунку. Перенести архів між пристроями можна лише через ваш власний зашифрований файл експорту (див. розділ про шифрування).</p>
 </section>
 
 <section class="help-section" aria-labelledby="help-h-2">
@@ -500,16 +408,16 @@ title="Зберегти зміни"
 • <strong>Результат</strong> — зі списку або довільний текст; для зручності статистики рекомендовано формат <strong>тип результату</strong>, при потребі пробіл і <strong>деталі в круглих дужках</strong>. Для KPI і групування в журналі використовується лише частина <em>до першої дужки</em> (ключ); текст у дужках лише уточнює звіт і не змінює категорію. Наприклад: <code>Ураження (знищення антени)</code>.
 </p>
 
-<p class="help-callout help-callout--action"><strong>Кнопка «Готово»</strong> збирає поля форми, перевіряє їх, створює новий звіт у локальній базі (унікальний id, версія 1, текст будується з полів), показує текст у полі внизу, копіює його в буфер і оновлює дату форми й лічильник екіпажу. Залежно від режиму відправки в налаштуваннях звіт може лишитися чернеткою, одразу піти в чергу на відправку або отримати відкладену відправку.</p>
+<p class="help-callout help-callout--action"><strong>Кнопка «Готово»</strong> викладує повний текст у поле внизу, копіює його в буфер обміну, додає запис у локальну історію (журнал) з часовою міткою збереження та оновлює показ дати й лічильника відповідно до логіки вище.</p>
 </section>
 
 <section class="help-section" aria-labelledby="help-h-3">
 <h2 class="help-section-title" id="help-h-3"><span class="help-section-num">3</span><span class="help-section-heading-text">Журнал, KPI та робота з історією</span></h2>
 
-<p>Екран <strong>«Журнал та статистика»</strong> читає звіти з <strong>IndexedDB</strong>; є верхня межа кількості записів на пристрої. Один і той самий період і пошук застосовуються до зведення, списку карток і карти.</p>
+<p>Екран <strong>«Журнал та статистика»</strong> показує всі звіти, що зберігаються в цьому браузері в масиві журналу (ключ сховища зазначено підказкою на екрані; є верхня межа кількості записів). Один і той самий період і пошук застосовуються і до зведення, і до списку карток, і до карти.</p>
 
 <p class="help-kicker"><em>Фільтр періоду</em></p>
-<p>Дата «від / до» і час «від / до» будуються зі структурованих полів звіту: <strong>дата місії</strong> та <strong>час ураження/втрати</strong> (не з «ручного» парсингу довільного тексту). За замовчуванням зазвичай обрано поточний місяць. Кнопка «Показати» фіксує умови; лічильник «Відібрано звітів: N із M» показує, скільки записів потрапило під фільтр порівняно з усім архівом.</p>
+<p>Дата «від / до» і час «від / до» за полем <strong>«Час ураження/втрати»</strong> з тексту звіту. За замовчуванням зазвичай обрано поточний місяць. Кнопка «Показати» фіксує умови; лічильник «Відібрано звітів: N із M» показує, скільки записів потрапило під фільтр порівняно з усім архівом.</p>
 
 <p class="help-kicker"><em>KPI (плитки зверху):</em></p>
 <p class="help-bullets">
@@ -521,34 +429,28 @@ title="Зберегти зміни"
 
 <p class="help-subblock"><strong class="help-subblock-label">Вкладка «Статистика».</strong> Текстове зведення з розбивкою за бортами, боєприпасами, типами місій і групами нормалізованих результатів. Повторювані формулювання (на кшталт варіантів «ураження…») зводяться до однієї категорії там, де це передбачено мапінгом. Текст зведення можна скопіювати кнопкою «Копіювати зведення».</p>
 
-<p class="help-subblock"><strong class="help-subblock-label">Вкладка «Журнал».</strong> Картка показує текст звіту, збоку — крапка-індикатор <strong>статусу синхронізації</strong> (наведіть для підказки). Внизу ряд іконок: <strong>копіювати</strong>, за підтримки браузера — <strong>поділитися</strong>, далі дії залежно від статусу — <strong>відправити</strong> в Google Таблицю, <strong>редагувати</strong>, відкладена відправка, скасування черги, <strong>виправити</strong> для вже надісланих (після збереження — «надіслати зміни»), повтор після помилки тощо. Текст звіту завжди відповідає полям; повне редагування через діалог.</p>
-
-<p class="help-kicker"><em>Масова відправка в таблицю:</em></p>
-<p class="help-bullets">
-• Кнопка <strong>«Відправити список у таблицю»</strong> ставить у чергу <strong>усі звіти з поточного відфільтрованого списку</strong> (період + пошук + «Показати»), окрім тих, що в статусі <strong>відкладена відправка (scheduled)</strong>. Це стосується й уже <strong>надісланих</strong> (sent): ух таблиці знову записуються за тим самим <strong>report_id</strong> — зручно, якщо ви очистили лист у Google, а в додатку статус лишився «надіслано».<br>
-• Потрібні збережений URL Apps Script і мережа; режим «вручну» на нові звіти не заважає цій кнопці.
-</p>
+<p class="help-subblock"><strong class="help-subblock-label">Вкладка «Журнал».</strong> Картки з одним рядком заголовка (екіпаж і дата) та кнопками <strong>«Копіювати»</strong>, <strong>«Поділитися»</strong>, <strong>«Змінити»</strong>. «Змінити» відкриває діалог з повним текстом звіту: можна виправити будь-який рядок; порожній текст зберегти не можна. Після збереження оновлюються журнал, статистика і карта.</p>
 
 <p class="help-kicker"><em>Видалення записів із історії:</em></p>
 <p class="help-bullets">
-• <strong>«Видалити звіти зі списку»</strong> (у журналі) — назавжди прибирає лише ті записи, які <em>зараз видимі</em> у списку з урахуванням періоду і пошуку.<br>
-• <strong>«Видалити всі звіти»</strong> — на екрані <strong>«Дані та інтеграція»</strong>, блок «Очистити архів»; повністю очищає локальний журнал на цьому пристрої. Спочатку зробіть експорт за потреби.<br>
-• На <strong>карті</strong> в картці звіту — кнопка з іконкою кошика видаляє один запис після підтвердження.
+• <strong>«Видалити звіти зі списку»</strong> — назавжди прибирає лише ті записи, які <em>зараз видимі</em> у журналі з урахуванням періоду і рядка пошуку; решта архіву на пристрої лишається.<br>
+• <strong>«Видалити всі звіти»</strong> — очищає весь журнал у <code>localStorage</code> цього браузера (без відновлення). Експортовані раніше файли самі по собі не змінюються.<br>
+• На <strong>карті</strong> в перегляді одного звіту є компактна кнопка з іконкою кошика: вона видаляє саме цей запис з журналу після підтвердження; маркери оновлюються.
 </p>
 
-<p class="help-muted-block">Кожен звіт з моменту створення має стабільний <strong>id</strong>; при збереженні змін зростає <strong>версія</strong>. Якщо немає мережі або відправка не вдалася, звіт може потрапити в <strong>чергу</strong> з повторними спробами пізніше.</p>
+<p class="help-muted-block">Кожен збережений звіт має внутрішній стабільний ідентифікатор (для редагування й видалення); старі записи при відкритті журналу можуть одноразово отримати id без зміни тексту.</p>
 </section>
 
 <section class="help-section help-section--crypto" aria-labelledby="help-h-4">
-<h2 class="help-section-title" id="help-h-4"><span class="help-section-num">4</span><span class="help-section-heading-text">Дані, інтеграція, експорт і шифрування</span></h2>
+<h2 class="help-section-title" id="help-h-4"><span class="help-section-num">4</span><span class="help-section-heading-text">Експорт, імпорт і шифрування</span></h2>
 
-<p>Меню → <strong>«Дані та інтеграція»</strong>. Тут: (1) посилання на Google Таблицю та URL веб-додатку <strong>Apps Script</strong>, режим відправки, затримка, автоблокування — збереження й «Перевірити з’єднання»; (2) зашифрований <strong>експорт / імпорт</strong> файлу; (3) небезпечна дія <strong>«Видалити всі звіти»</strong> з локального архіву. Перенесення історії між пристроями або резервна копія <em>без</em> відкритого зберігання в мережі — через цей зашифрований файл.</p>
+<p>У нижній частині екрану журналу є блок <strong>передачі даних</strong>: експорт у файл і імпорт із файлу. Це єдиний передбачений спосіб перенести історію між телефоном і ПК або резервно скопіювати архів <em>без</em> відкритого зберігання звітів у мережі.</p>
 
 <p class="help-kicker"><em>Експорт — кроки</em></p>
 <p class="help-steps">
 1) натисніть «Експорт»;<br>
 2) введіть <strong>парольну фразу</strong> (ключ) і повторіть її — обидва введення мають збігатися;<br>
-3) браузер збереже файл <code>uav_reports_v2.enc.json</code> — це JSON обгортка навколо зашифрованого вмісту (формат звітів v2);<br>
+3) браузер збереже файл <code>uav_reports.enc.json</code> — це JSON обгортка навколо зашифрованого вмісту;<br>
 4) зберігайте файл і пароль <strong>окремо</strong>; без пароля дані з файлу не відновити.
 </p>
 
@@ -556,9 +458,9 @@ title="Зберегти зміни"
 <p class="help-steps">
 1) «Імпорт» → оберіть відповідний <code>.json</code> файл;<br>
 2) введіть той самий ключ;<br>
-3) додаток перевіряє структуру та цілісність пакета (підтримуються архіви <strong>v2</strong> і зашифрований експорт <strong>v1</strong> зі старого застосунку);<br>
-4) звіти з файлу <strong>зливаються</strong> із поточним журналом за <strong>id</strong>: якщо id збігається, для того ж id переважають дані з файлу;<br>
-5) інтерфейс журналу та карти оновлюється автоматично. Імпортовані записи зазвичай у статусі чернетки — їх можна надіслати в таблицю з картки або кнопкою масової відправки у журналі.
+3) додаток перевіряє структуру, версію формату та цілісність пакета;<br>
+4) звіти з файлу <strong>зливаються</strong> із поточним журналом: дублікати одного й того ж запису (за парою «час збереження + повний текст») не додаються повторно;<br>
+5) інтерфейс журналу та карти оновлюється автоматично.
 </p>
 
 <p class="help-kicker"><em>Технічні деталі шифрування (Web Crypto у браузері)</em></p>
@@ -576,7 +478,7 @@ title="Зберегти зміни"
 <section class="help-section" aria-labelledby="help-h-5">
 <h2 class="help-section-title" id="help-h-5"><span class="help-section-num">5</span><span class="help-section-heading-text">Карта місій</span></h2>
 
-<p>Координати беруться зі структурованого поля звіту (MGRS), а не з «розбору» довільного тексту. Показуються лише звіти, що пройшли той самий фільтр періоду, що й журнал. Рушій маркерів — Leaflet. У <strong>нижньому правому куті</strong> карти — перемикач <strong>базової підкладки</strong>: схема OSM, супутник (Esri), рельєф і висоти (OpenTopoMap). Вибір зберігається в цьому браузері для наступних відвідувань.</p>
+<p>Підтягуються координати з рядка <strong>«Координати: …»</strong> у текстах звітів, що пройшли той самий фільтр періоду, що й журнал. Рушій маркерів — Leaflet. У <strong>нижньому правому куті</strong> карти — перемикач <strong>базової підкладки</strong>: схема OSM, супутник (Esri), рельєф і висоти (OpenTopoMap). Вибір зберігається в цьому браузері для наступних відвідувань.</p>
 
 <p class="help-kicker"><em>Маркери за кількістю місій у точці</em></p>
 <p class="help-bullets">
@@ -604,14 +506,12 @@ title="Зберегти зміни"
 • стріми.
 </p>
 <p>Елементи можна додавати, видаляти й переставляти перетягуванням. Збережені на пристрої перевизначення мають пріоритет над початковим файлом <code>config.json</code>; є можливість скинути списки до базових значень.</p>
-
-<p class="help-callout help-callout--tip">Інтеграція з Google Таблицями перенесена на екран <strong>«Дані та інтеграція»</strong> (разом із резервним копіюванням). Екран <strong>«Налаштування списків»</strong> містить лише редактор значень для полів форми.</p>
 </section>
 
 <section class="help-section" aria-labelledby="help-h-7">
 <h2 class="help-section-title" id="help-h-7"><span class="help-section-num">7</span><span class="help-section-heading-text">Навігація</span></h2>
 
-<p class="help-callout help-callout--tip"><strong>Довге натискання</strong> на заголовок «Звіт по БПЛА» відкриває меню екранів: форма, журнал і статистика, <strong>дані та інтеграція</strong>, карта, налаштування списків, ця довідка. Поточний екран підсвічено; «Закрити» ховає меню.</p>
+<p class="help-callout help-callout--tip"><strong>Довге натискання</strong> на заголовок «Звіт по БПЛА» відкриває меню екранів: форма, журнал і статистика, карта, налаштування списків, ця довідка. Поточний екран підсвічено; пункт «Закрити» ховає меню без переходу.</p>
 </section>
 
 <section class="help-section" aria-labelledby="help-h-8">
@@ -623,13 +523,13 @@ title="Зберегти зміни"
 
 <p class="help-subblock"><strong class="help-subblock-label">iPhone / iPad (Safari).</strong> «Поділитися» → «На екран “Додому”» → підтвердіть.</p>
 
-<p class="help-callout help-callout--warn"><strong>Важливо:</strong> перший візит бажано з інтернетом, щоб сервіс-воркер і файли закешувались; для <strong>index.html</strong> і <strong>js/app.js</strong> застосунок намагається спочатку взяти свіжу копію з мережі, щоб після оновлення не зависати на битій сторінці в кеші. Якщо після оновлення щось «ламається» — закрийте вкладку, очистіть кеш сайту або перевстановіть PWA.</p>
+<p class="help-callout help-callout--warn"><strong>Важливо:</strong> перший візит бажано з інтернетом, щоб сервіс-воркер і файли закешувались; далі основний сценарій працює офлайн.</p>
 </section>
 
 <section class="help-section" aria-labelledby="help-h-9">
 <h2 class="help-section-title" id="help-h-9"><span class="help-section-num">9</span><span class="help-section-heading-text">Конфіденційність</span></h2>
 
-<p>Звіти та черга синхронізації зберігаються в <strong>IndexedDB</strong>; лічильник і списки форми — частково в <code>localStorage</code>. На сервер розробника нічого не надсилається. Якщо увімкнено інтеграцію, звіти можуть відправлятися лише на <strong>ваш</strong> URL Apps Script. Резервна копія — зашифрований файл і пароль (розділ 4).</p>
+<p>Додаток не відправляє ваші звіти на сервер розробника. Локальні дані — у <code>localStorage</code> в межах обмежень браузера. Резерв — лише ваш зашифрований файл і пароль. Деталі — у <strong>розділі 4</strong>.</p>
 </section>
 
 <section class="help-section help-section--contacts" aria-labelledby="help-h-10">
@@ -692,14 +592,6 @@ type="button"
 data-screen="journal"
 >
 Журнал та статистика
-</button>
-
-<button
-class="screen-menu-item"
-type="button"
-data-screen="data"
->
-Дані та інтеграція
 </button>
 
 <button
