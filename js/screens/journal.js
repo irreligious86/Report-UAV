@@ -1,45 +1,115 @@
 /**
- * Journal and statistics screen: view reports from localStorage and aggregate by period.
- * Екран журналу та статистики: перегляд звітів з localStorage та агрегація за періодом.
+ * Journal & statistics: structured reports, sync actions, field-based stats.
  * @module screens/journal
  */
 
-import { $, isoToDDMMYYYY } from "../utils.js";
+import { $, isoToDDMMYYYY, setStatus } from "../utils.js";
+import { copyText } from "../clipboard.js";
 import {
-  loadReports,
-  deleteAllReports,
+  listReports,
   deleteReportsByIds,
-  updateReportText,
-} from "../history.js";
-import { REPORTS_LIMIT, STORAGE_KEY_REPORTS } from "../constants.js";
+  getReport,
+  trySendReportNow,
+  scheduleSend,
+  cancelScheduledSend,
+  cancelQueuedReport,
+  updateReportFieldsDraft,
+  applyCorrectionAfterSent,
+  enqueueReportsForSheetSync,
+  SYNC_STATUS,
+} from "../report-actions.js";
+import { REPORTS_LIMIT } from "../constants.js";
+import { normalizeFields } from "../report-format.js";
+import { loadSyncSettings } from "../sync-settings.js";
 import {
   loadPeriodFilter,
   savePeriodFilter,
   isWithinPeriodFilter,
   getImpactTimestampForReport,
-  normalizeDateToISO,
 } from "../filters.js";
-import {
-  mapResultToCategory,
-  RESULT_CATEGORIES,
-  isKpiHit,
-  isKpiLoss,
-} from "../result-mapping.js";
-import {
-  exportEncryptedReports,
-  importEncryptedReports,
-} from "../crypto/importExport.js";
+import { mapResultToCategory, isKpiHit, isKpiLoss } from "../result-mapping.js";
 
 let initialized = false;
 
-/** @type {string|null} */
-let editingReportId = null;
+/** Розгорнутий список карток журналу (майже на весь екран). */
+let journalListExpanded = false;
+
+// ── Utility helpers ───────────────────────────────────────────────────────────
+
+/** Copy text to clipboard with status message. */
+async function copyTextSmart(text) {
+  const ok = await copyText(text);
+  setStatus(ok ? "Скопійовано." : "Помилка копіювання.");
+}
+
+/** Increment a Map<string, number> counter for key. */
+function inc(map, key) {
+  map.set(key, (map.get(key) || 0) + 1);
+}
+
+/** Update KPI dashboard widgets. */
+function updateKPI(total, hits, loss) {
+  const kpiTotal = $("kpiTotal");
+  const kpiHits = $("kpiHits");
+  const kpiLoss = $("kpiLoss");
+  const kpiRate = $("kpiRate");
+  if (kpiTotal) kpiTotal.textContent = String(total);
+  if (kpiHits) kpiHits.textContent = String(hits);
+  if (kpiLoss) kpiLoss.textContent = String(loss);
+  if (kpiRate) {
+    const rate = total > 0 ? Math.round((hits / total) * 100) : 0;
+    kpiRate.textContent = rate + "%";
+  }
+}
+
+/** @type {(() => void) | null} */
+let journalLayoutResizeBound = null;
+
+function updateJournalExpandedGeometry() {
+  const panel = $("journalListPanel");
+  const titleEl = $("title");
+  if (!panel || !journalListExpanded) return;
+  if (titleEl instanceof HTMLElement) {
+    const topPx = Math.ceil(titleEl.getBoundingClientRect().bottom + 4);
+    panel.style.setProperty("--journal-fs-top", `${topPx}px`);
+  }
+  const card = panel.closest(".card");
+  if (card instanceof HTMLElement) {
+    const cr = card.getBoundingClientRect();
+    const pad = 12;
+    panel.style.setProperty("--journal-inset-left", `${cr.left + pad}px`);
+    panel.style.setProperty(
+      "--journal-inset-right",
+      `${Math.max(0, window.innerWidth - cr.right + pad)}px`
+    );
+  } else {
+    panel.style.setProperty("--journal-inset-left", "12px");
+    panel.style.setProperty("--journal-inset-right", "12px");
+  }
+}
+
+/** @type {import("../report-model.js").Report|null} */
+let editingReport = null;
+
+/** @type {"draft"|"correction"} */
+let editingMode = "draft";
+
+const FIELD_DEF = [
+  { key: "crew", label: "Екіпаж", type: "text" },
+  { key: "crewCounter", label: "Лічильник", type: "number" },
+  { key: "date", label: "Дата", type: "date" },
+  { key: "drone", label: "Борт", type: "text" },
+  { key: "missionType", label: "Характер", type: "text" },
+  { key: "takeoff", label: "Час зльоту", type: "time" },
+  { key: "impact", label: "Час ураження", type: "time" },
+  { key: "coords", label: "Координати", type: "text" },
+  { key: "ammo", label: "Боєприпас", type: "text" },
+  { key: "stream", label: "Стрім", type: "text" },
+  { key: "result", label: "Результат", type: "text" },
+];
 
 /**
- * Same filtering as the journal list (period + search).
- * @param {Array<{ id: string, ts: string, text: string }>} reports
- * @param {{fromDate:string,toDate:string,fromTime:string,toTime:string}} period
- * @param {string} searchStr
+ * @param {import("../report-model.js").Report[]} reports
  */
 function filterReportsForJournal(reports, period, searchStr) {
   const q = (searchStr || "").trim().toLowerCase();
@@ -55,31 +125,172 @@ function filterReportsForJournal(reports, period, searchStr) {
   });
 }
 
+function fmtIso(iso) {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString("uk-UA", { dateStyle: "short", timeStyle: "short" });
+  } catch {
+    return iso;
+  }
+}
+
+function statusBadgeClass(st) {
+  const m = {
+    [SYNC_STATUS.DRAFT]: "status-draft",
+    [SYNC_STATUS.SCHEDULED]: "status-scheduled",
+    [SYNC_STATUS.QUEUED]: "status-queued",
+    [SYNC_STATUS.SENDING]: "status-sending",
+    [SYNC_STATUS.SENT]: "status-sent",
+    [SYNC_STATUS.RESYNC_REQUIRED]: "status-resync",
+    [SYNC_STATUS.ERROR]: "status-error",
+    [SYNC_STATUS.LOCKED]: "status-locked",
+  };
+  return m[st] || "status-draft";
+}
+
+/** Підказка до кольорової крапки статусу синхронізації. */
+function syncStatusTitle(st) {
+  const m = {
+    [SYNC_STATUS.DRAFT]: "Чернетка — ще не надіслано в Google Таблицю",
+    [SYNC_STATUS.SCHEDULED]: "Відправка запланована",
+    [SYNC_STATUS.QUEUED]: "У черзі на відправку",
+    [SYNC_STATUS.SENDING]: "Надсилається…",
+    [SYNC_STATUS.SENT]: "Записано в Google Таблицю",
+    [SYNC_STATUS.RESYNC_REQUIRED]:
+      "Є зміни, яких немає в таблиці — натисніть «Надіслати зміни» (помаранчевий ≠ уже в таблиці)",
+    [SYNC_STATUS.ERROR]: "Помилка відправки — повторіть або перевірте URL Apps Script",
+    [SYNC_STATUS.LOCKED]: "Заблоковано після відправки (корекції залежать від налаштувань)",
+  };
+  return m[st] || String(st);
+}
+
 /**
- * Initializes the journal/statistics screen once.
- * Ініціалізує екран журналу та статистики (одноразово).
+ * @param {boolean} expanded
  */
-export function initJournalScreen() {
+function setJournalListExpanded(expanded) {
+  journalListExpanded = expanded;
+  const panel = $("journalListPanel");
+  const expandBar = $("journalListExpandBar");
+  if (panel) {
+    panel.classList.toggle("journal-list-panel--expanded", expanded);
+    if (expanded) {
+      updateJournalExpandedGeometry();
+      if (!journalLayoutResizeBound) {
+        journalLayoutResizeBound = () => updateJournalExpandedGeometry();
+        window.addEventListener("resize", journalLayoutResizeBound);
+      }
+    } else {
+      panel.style.removeProperty("--journal-fs-top");
+      panel.style.removeProperty("--journal-inset-left");
+      panel.style.removeProperty("--journal-inset-right");
+      if (journalLayoutResizeBound) {
+        window.removeEventListener("resize", journalLayoutResizeBound);
+        journalLayoutResizeBound = null;
+      }
+    }
+  }
+  if (expandBar) {
+    expandBar.setAttribute("aria-expanded", expanded ? "true" : "false");
+    if (expanded) {
+      expandBar.title = "Згорнути список";
+      expandBar.setAttribute("aria-label", "Згорнути список журналу");
+    } else {
+      expandBar.title = "Розгорнути список на всю висоту екрана";
+      expandBar.setAttribute("aria-label", "Розгорнути список журналу на всю висоту екрана");
+    }
+  }
+}
+
+/** Скинути розгортання списку (інший екран або вкладка «Статистика»). */
+export function resetJournalListLayout() {
+  if (!journalListExpanded) return;
+  setJournalListExpanded(false);
+}
+
+function renderEditFields(container, report) {
+  if (!container) return;
+  container.innerHTML = "";
+  const f = normalizeFields(report.fields);
+  for (const def of FIELD_DEF) {
+    const wrap = document.createElement("label");
+    wrap.className = "journal-edit-field";
+    const lab = document.createElement("span");
+    lab.className = "journal-edit-field-label";
+    lab.textContent = def.label;
+    const input = document.createElement("input");
+    input.className = "journal-edit-field-input";
+    input.dataset.fieldKey = def.key;
+    input.type = def.type || "text";
+    const v = f[def.key];
+    if (def.key === "crewCounter" && v != null) input.value = String(v);
+    else input.value = v != null && v !== undefined ? String(v) : "";
+    wrap.appendChild(lab);
+    wrap.appendChild(input);
+    container.appendChild(wrap);
+  }
+}
+
+function readEditFields(container) {
+  const inputs = container?.querySelectorAll("[data-field-key]") || [];
+  /** @type {Record<string, string>} */
+  const raw = {};
+  inputs.forEach((el) => {
+    if (!(el instanceof HTMLInputElement)) return;
+    const k = el.dataset.fieldKey;
+    if (!k) return;
+    raw[k] = el.value;
+  });
+  let crewCounter = null;
+  if (raw.crewCounter !== undefined && raw.crewCounter !== "") {
+    const n = parseInt(raw.crewCounter, 10);
+    crewCounter = Number.isFinite(n) ? n : null;
+  }
+  return normalizeFields({
+    ...raw,
+    crewCounter,
+  });
+}
+
+/**
+ * @param {import("../report-model.js").Report} report
+ */
+function openEditDialog(report, mode) {
+  const dialog = $("journalEditDialog");
+  const title = $("journalEditTitle");
+  const fieldsEl = $("journalEditFields");
+  if (!(dialog instanceof HTMLDialogElement) || !fieldsEl) return;
+  editingReport = report;
+  editingMode = mode;
+  if (title) {
+    title.textContent =
+      mode === "correction" ? "Виправлення опублікованого звіту" : "Редагування звіту";
+  }
+  renderEditFields(fieldsEl, report);
+  dialog.showModal();
+  const first = fieldsEl.querySelector("input");
+  if (first instanceof HTMLInputElement) first.focus();
+}
+
+export async function initJournalScreen() {
   if (initialized) return;
   initialized = true;
 
   window.addEventListener("reportsUpdated", () => {
-    renderForSelectedPeriod();
+    void renderForSelectedPeriod();
   });
 
-  // Sync shared period filter into inputs on first load.
   applySharedFilterToInputs();
 
-  // Apply
   const btnApply = $("btnJournalApply");
   if (btnApply) {
     btnApply.onclick = () => {
       saveCurrentInputsToSharedFilter();
-      renderForSelectedPeriod();
+      void renderForSelectedPeriod();
     };
   }
 
-  // Copy summary
   const btnCopy = $("btnCopyJournalSummary");
   if (btnCopy) {
     btnCopy.onclick = async () => {
@@ -90,7 +301,6 @@ export function initJournalScreen() {
     };
   }
 
-  // Tabs
   const tabStats = $("tabStats");
   const tabJournal = $("tabJournal");
   const statsSection = $("statsSection");
@@ -98,10 +308,9 @@ export function initJournalScreen() {
 
   const setTab = (name) => {
     const isStats = name === "stats";
-
+    if (isStats) resetJournalListLayout();
     if (tabStats) tabStats.classList.toggle("active", isStats);
     if (tabJournal) tabJournal.classList.toggle("active", !isStats);
-
     if (statsSection) statsSection.style.display = isStats ? "" : "none";
     if (journalSection) journalSection.style.display = isStats ? "none" : "";
   };
@@ -110,170 +319,105 @@ export function initJournalScreen() {
   if (tabJournal) tabJournal.onclick = () => setTab("journal");
   setTab("stats");
 
-  // Search (debounced)
   const searchEl = $("journalSearch");
   if (searchEl) {
     let t = null;
     searchEl.oninput = () => {
       clearTimeout(t);
-      t = setTimeout(() => renderForSelectedPeriod(), 200);
+      t = setTimeout(() => void renderForSelectedPeriod(), 200);
     };
   }
 
-  // First render
-  renderForSelectedPeriod();
+  await renderForSelectedPeriod();
 
-  // Encrypted export/import
-  const btnExport = $("btnExportEncrypted");
-  if (btnExport) {
-    btnExport.onclick = async () => {
-      await handleExportEncrypted();
-    };
+  const expandBar = $("journalListExpandBar");
+  if (expandBar) {
+    expandBar.onclick = () => setJournalListExpanded(!journalListExpanded);
   }
 
-  const btnImport = $("btnImportEncrypted");
-  const importInput = $("importEncryptedFile");
-  if (btnImport && importInput instanceof HTMLInputElement) {
-    btnImport.onclick = () => {
-      importInput.value = "";
-      importInput.click();
-    };
+  const btnEnqueueSheet = $("btnJournalEnqueueSheet");
+  if (btnEnqueueSheet) {
+    btnEnqueueSheet.onclick = async () => {
+      const period = loadPeriodFilter();
+      const searchStr = (($("journalSearch")?.value) || "").trim();
+      const reports = await listReports();
+      const filtered = filterReportsForJournal(reports, period, searchStr);
+      const pending = filtered.filter((r) => r.syncStatus !== SYNC_STATUS.SCHEDULED);
+      if (pending.length === 0) {
+        window.alert(
+          "У списку лише звіти з відкладеною відправкою (scheduled) або список порожній. Оберіть період і «Показати», скасуйте відкладення за потреби, або відкрийте картку й надішліть вручну."
+        );
+        return;
+      }
+      const settings = await loadSyncSettings();
+      if (!String(settings.appsScriptUrl || "").trim()) {
+        window.alert(
+          "Спочатку збережіть URL веб-застосунку Apps Script на екрані «Дані та інтеграція» — без нього таблиця не оновиться."
+        );
+        return;
+      }
 
-    importInput.addEventListener("change", async () => {
-      const file = importInput.files && importInput.files[0];
-      if (!file) return;
-      await handleImportEncrypted(file);
-      importInput.value = "";
-    });
+      const ok = window.confirm(
+        `Поставити в чергу відправку в Google Sheets для ${pending.length} звіт(ів) зі списку (у т.ч. уже надіслані — повторний запис у таблицю за report_id)? Відкладені (scheduled) пропускаються.`
+      );
+      if (!ok) return;
+      const { queued } = await enqueueReportsForSheetSync(pending.map((r) => r.id));
+      window.alert(
+        queued > 0
+          ? `У чергу додано ${queued} звіт(ів). Перевірте статус на картках.`
+          : "Нічого не додано до черги."
+      );
+      await renderForSelectedPeriod();
+    };
   }
 
   const btnDelFiltered = $("btnJournalDeleteFiltered");
   if (btnDelFiltered) {
-    btnDelFiltered.onclick = () => {
+    btnDelFiltered.onclick = async () => {
       const period = loadPeriodFilter();
       const searchStr = (($("journalSearch")?.value) || "").trim();
-      const reports = loadReports();
+      const reports = await listReports();
       const filtered = filterReportsForJournal(reports, period, searchStr);
       if (filtered.length === 0) {
         window.alert(
-          "Немає що видаляти: за цим періодом і пошуком список порожній. Спробуйте змінити умови або переконайтеся, що в архіві є звіти."
+          "Немає що видаляти: за цим періодом і пошуком список порожній."
         );
         return;
       }
       const ok = window.confirm(
-        `Видалити ${filtered.length} звіт(ів) зі списку нижче (те саме, що зараз показує період і пошук)? Інші збережені звіти залишаться. Це незворотно.`
+        `Видалити ${filtered.length} звіт(ів)? Це незворотно.`
       );
       if (!ok) return;
-      deleteReportsByIds(filtered.map((r) => r.id));
-      renderForSelectedPeriod();
-    };
-  }
-
-  const btnDelAll = $("btnJournalDeleteAll");
-  if (btnDelAll) {
-    btnDelAll.onclick = () => {
-      const n = loadReports().length;
-      if (n === 0) {
-        window.alert("Архів уже порожній.");
-        return;
-      }
-      const ok = window.confirm(
-        `Видалити всі ${n} звіт(ів) у архіві цього браузера? Записи не можна буде відновити.`
-      );
-      if (!ok) return;
-      deleteAllReports();
-      renderForSelectedPeriod();
+      await deleteReportsByIds(filtered.map((r) => r.id));
+      await renderForSelectedPeriod();
     };
   }
 
   setupEditDialog();
 }
 
-/**
- * Applies shared period filter into journal inputs.
- * Підставляє спільний фільтр періоду у поля журналу.
- */
 function applySharedFilterToInputs() {
   const period = loadPeriodFilter();
-
   const fromEl = $("journalFrom");
   const toEl = $("journalTo");
   const timeFromEl = $("journalTimeFrom");
   const timeToEl = $("journalTimeTo");
-
   if (fromEl) fromEl.value = period.fromDate || "";
   if (toEl) toEl.value = period.toDate || "";
   if (timeFromEl) timeFromEl.value = period.fromTime || "";
   if (timeToEl) timeToEl.value = period.toTime || "";
 }
 
-/**
- * Reads current journal inputs and saves them into shared period filter.
- * Зчитує значення полів журналу та зберігає у спільний фільтр.
- */
 function saveCurrentInputsToSharedFilter() {
-  const payload = {
+  savePeriodFilter({
     fromDate: ($("journalFrom")?.value || "").trim(),
     toDate: ($("journalTo")?.value || "").trim(),
     fromTime: ($("journalTimeFrom")?.value || "").trim(),
     toTime: ($("journalTimeTo")?.value || "").trim(),
-  };
-
-  savePeriodFilter(payload);
+  });
 }
 
-/**
- * Parses structured fields from generated report text.
- * Розбирає структуровані поля з тексту звіту.
- * @param {string} text - Report text as saved in history.
- * @returns {{crew?: string, date?: string, drone?: string, missionType?: string, ammo?: string, stream?: string, result?: string, impactTime?: string}}
- */
-function parseReportText(text) {
-  const lines = (text || "").split("\n");
-  const out = {};
-
-  if (lines[0]) out.crew = lines[0].trim();
-  if (lines[1]) out.date = lines[1].trim();
-
-  for (const line of lines.slice(2)) {
-    const idx = line.indexOf(":");
-    if (idx === -1) continue;
-
-    const key = line.slice(0, idx).trim();
-    const value = line.slice(idx + 1).trim();
-
-    switch (key) {
-      case "Борт":
-        out.drone = value;
-        break;
-      case "Характер":
-        out.missionType = value;
-        break;
-      case "Боєприпас":
-        out.ammo = value;
-        break;
-      case "Стрім":
-        out.stream = value;
-        break;
-      case "Час ураження/втрати":
-        out.impactTime = value;
-        break;
-      case "Результат":
-        out.result = value;
-        break;
-      default:
-        break;
-    }
-  }
-
-  return out;
-}
-
-/**
- * Renders journal cards and statistics for the selected period.
- * Будує журнал (картками) та статистику за обраний період.
- */
-function renderForSelectedPeriod() {
+async function renderForSelectedPeriod() {
   const period = loadPeriodFilter();
   const fromIso = period.fromDate || "";
   const toIso = period.toDate || "";
@@ -281,35 +425,31 @@ function renderForSelectedPeriod() {
   const toTimeStr = period.toTime || "";
 
   const summaryEl = $("journalSummary");
-  const cardsEl = $("journalCards"); // NEW container
+  const cardsEl = $("journalCards");
   const archiveEl = $("journalArchiveInfo");
   if (!summaryEl || !cardsEl) return;
 
   const searchRaw = (($("journalSearch")?.value) || "").trim();
-
-  const reports = loadReports();
+  const reports = await listReports();
 
   if (archiveEl) {
-    archiveEl.textContent =
-      `Архів на цьому пристрої: ${reports.length} з ${REPORTS_LIMIT} збережених звітів (localStorage цього браузера, ключ ${STORAGE_KEY_REPORTS}). Статистика та журнал показують лише звіти, що відповідають періоду й пошуку.`;
+    archiveEl.textContent = `Архів (IndexedDB, v2): ${reports.length} з ${REPORTS_LIMIT} звітів.`;
   }
 
   const filtered = filterReportsForJournal(reports, period, searchRaw);
 
   const filterCountEl = $("journalFilterCount");
   if (filterCountEl) {
-    filterCountEl.textContent = `Відібрано звітів: ${filtered.length} із ${reports.length} у архіві (період, час завершення та пошук).`;
+    filterCountEl.textContent = `Відібрано: ${filtered.length} із ${reports.length}.`;
   }
 
-  // Newest first (by mission end time)
+  cardsEl.textContent = "";
+
   filtered.sort((a, b) => {
     const ta = getImpactTimestampForReport(a) ?? 0;
     const tb = getImpactTimestampForReport(b) ?? 0;
     return tb - ta;
   });
-
-  // Always clear cards
-  cardsEl.textContent = "";
 
   if (filtered.length === 0) {
     summaryEl.textContent = "За обраний період звітів не знайдено.";
@@ -324,112 +464,68 @@ function renderForSelectedPeriod() {
     missionTypes: new Map(),
     results: new Map(),
   };
-
-  // KPI: count normalized hits vs losses
   let hits = 0;
   let loss = 0;
-
   const allTexts = [];
 
-  // Render cards
   for (const item of filtered) {
-    const parsed = parseReportText(item.text);
-
-    const dateIso =
-      normalizeDateToISO(parsed.date || "") ||
-      String(item.ts || "").slice(0, 10) ||
-      "";
-
-    const dateHuman =
-      (parsed.date && /^\d{1,2}\.\d{1,2}\.\d{4}$/.test(String(parsed.date).trim())
-        ? String(parsed.date).trim()
-        : "") ||
-      isoToDDMMYYYY(dateIso) ||
-      dateIso;
-
-    const crewLabel = (parsed.crew || "").trim() || "Звіт";
-    const cardSummary = dateHuman ? `${crewLabel} · ${dateHuman}` : crewLabel;
-
+    const f = normalizeFields(item.fields);
     allTexts.push(item.text);
 
-    // Count maps
-    if (parsed.drone) inc(counts.drones, parsed.drone);
-    if (parsed.ammo) inc(counts.ammo, parsed.ammo);
-    if (parsed.missionType) inc(counts.missionTypes, parsed.missionType);
-    if (parsed.result) {
-      const category = mapResultToCategory(parsed.result);
-      inc(counts.results, category);
-
-      if (isKpiHit(parsed.result)) hits += 1;
-      if (isKpiLoss(parsed.result)) loss += 1;
+    if (f.drone) inc(counts.drones, f.drone);
+    if (f.ammo) inc(counts.ammo, f.ammo);
+    if (f.missionType) inc(counts.missionTypes, f.missionType);
+    if (f.result) {
+      inc(counts.results, mapResultToCategory(f.result));
+      if (isKpiHit(f.result)) hits += 1;
+      if (isKpiLoss(f.result)) loss += 1;
     }
 
-    // Card DOM
+    const dateHuman = f.date
+      ? /^\d{4}-\d{2}-\d{2}$/.test(f.date)
+        ? isoToDDMMYYYY(f.date)
+        : f.date
+      : "";
+    const crewLabel = (f.crew || "").trim() || "Звіт";
+    const counterPart = f.crewCounter != null ? ` #${f.crewCounter}` : "";
+    const cardSummary = dateHuman
+      ? `${crewLabel}${counterPart} · ${dateHuman}`
+      : `${crewLabel}${counterPart}`;
+
     const card = document.createElement("div");
     card.className = "journal-card";
 
+    // ── Header: status dot + summary ──
     const head = document.createElement("div");
     head.className = "journal-card-head";
+
+    const statusDot = document.createElement("span");
+    statusDot.className = `card-status-dot ${statusBadgeClass(item.syncStatus)}`;
+    statusDot.title = syncStatusTitle(item.syncStatus);
 
     const summary = document.createElement("div");
     summary.className = "journal-card-summary";
     summary.textContent = cardSummary;
 
-    const actions = document.createElement("div");
-    actions.className = "journal-card-actions";
-
-    const btnCopyOne = document.createElement("button");
-    btnCopyOne.type = "button";
-    btnCopyOne.className = "btnSmall";
-    btnCopyOne.textContent = "Копіювати";
-    btnCopyOne.onclick = () => copyTextSmart(item.text);
-
-    const btnShare = document.createElement("button");
-    btnShare.type = "button";
-    btnShare.className = "btnSmall";
-    btnShare.textContent = "Поділитися";
-    btnShare.onclick = async () => {
-      if (navigator.share) {
-        try {
-          await navigator.share({ text: item.text });
-        } catch {
-          // user canceled or unsupported
-        }
-      } else {
-        await copyTextSmart(item.text);
-      }
-    };
-
-    const btnEdit = document.createElement("button");
-    btnEdit.type = "button";
-    btnEdit.className = "btnSmall";
-    btnEdit.textContent = "Змінити";
-    btnEdit.onclick = () => openEditDialog(item.id, item.text);
-
-    actions.appendChild(btnCopyOne);
-    actions.appendChild(btnShare);
-    actions.appendChild(btnEdit);
-
+    head.appendChild(statusDot);
     head.appendChild(summary);
-    head.appendChild(actions);
 
+    // ── Body: report text, always visible ──
     const body = document.createElement("div");
     body.className = "journal-card-body";
     body.textContent = item.text;
 
+    // ── Action icons row (bottom) ──
+    const actionsRow = document.createElement("div");
+    actionsRow.className = "journal-card-icon-actions";
+    appendActionIcons(actionsRow, item);
+
     card.appendChild(head);
     card.appendChild(body);
-
+    card.appendChild(actionsRow);
     cardsEl.appendChild(card);
   }
 
-  // Copy all
-  const btnCopyAll = $("btnJournalCopyAll");
-  if (btnCopyAll) {
-    btnCopyAll.onclick = () => copyTextSmart(allTexts.join("\n\n---\n\n"));
-  }
-
-  // Summary text (as before)
   const parts = [];
   const fmtPeriod = (d, t) => (d ? (t ? `${d} ${t}` : d) : "");
   parts.push(`Період: ${fmtPeriod(fromIso, fromTimeStr)} → ${fmtPeriod(toIso, toTimeStr)}`);
@@ -452,211 +548,215 @@ function renderForSelectedPeriod() {
 
   summaryEl.textContent = parts.join("\n\n");
 
-  // KPI
+  const btnCopyAll = $("btnJournalCopyAll");
+  if (btnCopyAll) {
+    btnCopyAll.onclick = () => copyTextSmart(allTexts.join("\n\n---\n\n"));
+  }
+
   updateKPI(counts.total, hits, loss);
 }
 
 /**
- * Sets transfer status message for export/import operations.
- * @param {string} message
- * @param {boolean} isError
+ * Відправка з оновленням списку й поясненням, якщо в таблиці ще немає рядка.
+ * @param {string} reportId
  */
-function setTransferStatus(message, isError = false) {
-  const el = $("journalTransferStatus");
-  if (!el) return;
-  el.textContent = message || "";
-  el.style.color = isError ? "var(--danger)" : "";
-}
+async function trySendWithFeedback(reportId) {
+  const settings = await loadSyncSettings();
+  const ok = await trySendReportNow(reportId);
+  await renderForSelectedPeriod();
+  if (ok) return;
 
-/**
- * Prompts user for encryption key.
- * @param {string} title
- * @returns {string|null}
- */
-function promptForKey(title) {
-  const value = window.prompt(title, "");
-  if (value == null) return null;
-  const key = value.trim();
-  if (!key) {
-    throw new Error("Ключ шифрування порожній.");
-  }
-  return key;
-}
-
-/**
- * Converts unknown error into readable message.
- * @param {unknown} error
- * @returns {string}
- */
-function getErrorMessage(error) {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-  return "Сталася невідома помилка.";
-}
-
-/**
- * Handles encrypted reports export.
- * Uses a double-entry prompt for key confirmation.
- * @returns {Promise<void>}
- */
-async function handleExportEncrypted() {
-  try {
-    setTransferStatus("Підготовка експорту...");
-
-    const key1 = promptForKey("Введи ключ шифрування для експорту");
-    if (key1 == null) {
-      setTransferStatus("Експорт скасовано.");
-      return;
-    }
-
-    const key2 = promptForKey("Повтори ключ шифрування");
-    if (key2 == null) {
-      setTransferStatus("Експорт скасовано.");
-      return;
-    }
-
-    if (key1 !== key2) {
-      throw new Error("Ключі не співпадають.");
-    }
-
-    const result = await exportEncryptedReports(key1);
-    setTransferStatus(
-      `Експорт завершено. Файл: ${result.fileName}. Записів: ${result.count}.`
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    window.alert(
+      "Немає мережі. Звіт поставлено в чергу; після з’єднання почекайте або натисніть кнопку відправки ще раз."
     );
-  } catch (error) {
-    setTransferStatus(getErrorMessage(error), true);
-  }
-}
-
-/**
- * Handles encrypted reports import from selected file and merges into history.
- * @param {File} file
- * @returns {Promise<void>}
- */
-async function handleImportEncrypted(file) {
-  try {
-    setTransferStatus(`Імпорт файлу "${file.name}"...`);
-
-    const key = promptForKey("Введи ключ для розшифрування файлу");
-    if (key == null) {
-      setTransferStatus("Імпорт скасовано.");
-      return;
-    }
-
-    const result = await importEncryptedReports(file, key);
-
-    setTransferStatus(
-      `Імпорт завершено. Було: ${result.before}, у файлі: ${result.imported}, додано: ${result.added}, стало: ${result.after}.`
-    );
-
-    // Refresh view with updated reports
-    renderForSelectedPeriod();
-  } catch (error) {
-    setTransferStatus(getErrorMessage(error), true);
-  }
-}
-
-/**
- * Helper to increment value in Map.
- * @param {Map<string, number>} map
- * @param {string} key
- */
-function inc(map, key) {
-  map.set(key, (map.get(key) || 0) + 1);
-}
-
-/**
- * KPI render
- */
-function updateKPI(total, hits, loss) {
-  const kTotal = $("kpiTotal");
-  const kHits = $("kpiHits");
-  const kLoss = $("kpiLoss");
-  const kRate = $("kpiRate");
-
-  if (kTotal) kTotal.textContent = String(total);
-  if (kHits) kHits.textContent = String(hits);
-  if (kLoss) kLoss.textContent = String(loss);
-
-  const rate = total ? Math.round((hits / total) * 100) : 0;
-  if (kRate) kRate.textContent = `${rate}%`;
-}
-
-/**
- * @param {string} id
- * @param {string} text
- */
-function openEditDialog(id, text) {
-  const dialog = $("journalEditDialog");
-  const ta = $("journalEditTextarea");
-  if (!(dialog instanceof HTMLDialogElement) || !(ta instanceof HTMLTextAreaElement)) {
     return;
   }
-  editingReportId = id;
-  ta.value = text || "";
-  dialog.showModal();
-  ta.focus();
+
+  if (!String(settings.appsScriptUrl || "").trim()) {
+    window.alert(
+      "Не збережено URL веб-застосунку Apps Script. Відкрийте «Дані та інтеграція», вставте URL і збережіть. Без цього рядок у Google Таблиці не з’явиться — помаранчевий маркер означає «зміни тільки в телефоні», а не вже в таблиці."
+    );
+    return;
+  }
+
+  const after = await getReport(reportId);
+
+  if (after?.syncStatus === SYNC_STATUS.ERROR) {
+    window.alert(
+      "Відправка не вдалася. Перевірте URL, доступ скрипта до таблиці та журнал «Виконання» в Apps Script."
+    );
+    return;
+  }
+
+  if (after?.syncStatus === SYNC_STATUS.RESYNC_REQUIRED) {
+    window.alert(
+      "Зміни досі не записані в таблицю. Спробуйте ще раз або «Відправити список у таблицю», після перевірки інтернету та URL."
+    );
+    return;
+  }
+
+  if (after?.syncStatus === SYNC_STATUS.QUEUED || after?.syncStatus === SYNC_STATUS.SENDING) {
+    window.alert(
+      "Звіт у черзі або надсилається. Зачекайте кілька секунд; якщо статус не зміниться — перевірте з’єднання."
+    );
+  }
 }
 
-function setupEditDialog() {
-  const dialog = $("journalEditDialog");
-  const ta = $("journalEditTextarea");
-  const btnCancel = $("journalEditCancel");
-  const btnSave = $("journalEditSave");
+// ── SVG icon strings ────────────────────────────────────────────────────────
+const IC = {
+  copy:    `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
+  share:   `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>`,
+  send:    `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`,
+  edit:    `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+  cancel:  `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+  clock:   `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  trash:   `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`,
+  resync:  `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>`,
+};
 
-  const closeDialog = () => {
-    if (dialog instanceof HTMLDialogElement) dialog.close();
+/**
+ * Іконки дій внизу картки журналу.
+ * @param {HTMLElement} row
+ * @param {import("../report-model.js").Report} item
+ */
+function appendActionIcons(row, item) {
+  const st = item.syncStatus;
+
+  /** @param {string} svg @param {string} title @param {() => any | Promise<any>} fn @param {string} [mod] */
+  const mk = (svg, title, fn, mod = "") => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "card-action-icon" + (mod ? ` ${mod}` : "");
+    b.title = title;
+    b.innerHTML = svg;
+    b.onclick = () => void fn();
+    row.appendChild(b);
   };
 
-  if (dialog instanceof HTMLDialogElement) {
-    dialog.addEventListener("close", () => {
-      editingReportId = null;
+  mk(IC.copy, "Копіювати текст", async () => {
+    await copyTextSmart(item.text || "");
+  });
+
+  if (navigator.share) {
+    mk(IC.share, "Поділитися", async () => {
+      try {
+        await navigator.share({ text: item.text || "" });
+      } catch {
+        /* скасовано */
+      }
     });
   }
 
-  if (btnCancel) {
-    btnCancel.onclick = () => closeDialog();
-  }
-
-  if (btnSave && ta instanceof HTMLTextAreaElement) {
-    btnSave.onclick = () => {
-      if (!editingReportId) {
-        closeDialog();
-        return;
-      }
-      const body = ta.value;
-      if (!body.trim()) {
-        window.alert("Текст звіту не може бути порожнім.");
-        return;
-      }
-      const id = editingReportId;
-      const ok = updateReportText(id, { text: body });
-      if (!ok) {
-        window.alert("Не вдалося зберегти: запис не знайдено.");
-      }
-      closeDialog();
-      renderForSelectedPeriod();
-    };
+  if (st === SYNC_STATUS.DRAFT) {
+    mk(IC.send, "Відправити", async () => {
+      await trySendWithFeedback(item.id);
+    }, "accent");
+    mk(IC.edit, "Редагувати", async () => {
+      const r = await getReport(item.id);
+      if (r) openEditDialog(r, "draft");
+    });
+    mk(IC.clock, "Запланувати", async () => {
+      const s = await loadSyncSettings();
+      const def = s.sendDelayMinutes ?? 60;
+      const v = window.prompt("Затримка (хв)", String(def));
+      if (v == null) return;
+      const n = parseInt(v, 10);
+      await scheduleSend(item.id, Number.isFinite(n) ? n : def);
+      await renderForSelectedPeriod();
+    });
+  } else if (st === SYNC_STATUS.SCHEDULED) {
+    mk(IC.cancel, "Скасувати відправку", async () => {
+      await cancelScheduledSend(item.id);
+      await renderForSelectedPeriod();
+    });
+    mk(IC.edit, "Редагувати", async () => {
+      const r = await getReport(item.id);
+      if (r) openEditDialog(r, "draft");
+    });
+  } else if (st === SYNC_STATUS.QUEUED || st === SYNC_STATUS.SENDING) {
+    mk(IC.send, "Надіслати зараз", async () => {
+      await trySendWithFeedback(item.id);
+    }, "accent");
+    mk(IC.cancel, "Скасувати чергу", async () => {
+      await cancelQueuedReport(item.id);
+      await renderForSelectedPeriod();
+    });
+  } else if (st === SYNC_STATUS.SENT) {
+    mk(IC.edit, "Виправити", async () => {
+      const r = await getReport(item.id);
+      if (r) openEditDialog(r, "correction");
+    });
+    mk(IC.resync, "Повторно синхронізувати", async () => {
+      await trySendWithFeedback(item.id);
+    });
+  } else if (st === SYNC_STATUS.RESYNC_REQUIRED) {
+    mk(IC.send, "Надіслати зміни", async () => {
+      await trySendWithFeedback(item.id);
+    }, "accent");
+    mk(IC.edit, "Редагувати", async () => {
+      const r = await getReport(item.id);
+      if (r) openEditDialog(r, "draft");
+    });
+  } else if (st === SYNC_STATUS.ERROR) {
+    mk(IC.send, "Повторити відправку", async () => {
+      await trySendWithFeedback(item.id);
+    }, "warn");
+    mk(IC.edit, "Редагувати", async () => {
+      const r = await getReport(item.id);
+      if (r) openEditDialog(r, "draft");
+    });
+  } else if (st === SYNC_STATUS.LOCKED) {
+    mk(IC.edit, "Виправлення після публікації", async () => {
+      const r = await getReport(item.id);
+      if (r) openEditDialog(r, "correction");
+    });
   }
 }
 
-/**
- * Copies text to clipboard with fallback.
- * @param {string} text
- */
-async function copyTextSmart(text) {
-  const t = (text || "").trim();
-  if (!t) return;
+// ── Edit dialog save handler ──────────────────────────────────────────────────
+function collectFieldsFromEditDialog() {
+  const fieldsEl = $("journalEditFields");
+  if (!fieldsEl) return null;
+  const result = {};
+  for (const def of FIELD_DEF) {
+    const input = fieldsEl.querySelector(`[data-field-key="${def.key}"]`);
+    if (input instanceof HTMLInputElement || input instanceof HTMLSelectElement) {
+      result[def.key] = input.value;
+    }
+  }
+  return normalizeFields(result);
+}
 
-  try {
-    await navigator.clipboard.writeText(t);
-  } catch {
-    const ta = document.createElement("textarea");
-    ta.value = t;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand("copy");
-    document.body.removeChild(ta);
+async function handleEditSave() {
+  if (!editingReport) return;
+  const fields = collectFieldsFromEditDialog();
+  if (!fields) return;
+  const dialog = $("journalEditDialog");
+
+  if (editingMode === "correction") {
+    await applyCorrectionAfterSent(editingReport.id, fields);
+  } else {
+    await updateReportFieldsDraft(editingReport.id, fields);
+  }
+
+  editingReport = null;
+  editingMode = "draft";
+  if (dialog instanceof HTMLDialogElement) dialog.close();
+  await renderForSelectedPeriod();
+}
+
+function setupEditDialog() {
+  const saveBtn = $("journalEditSave");
+  const cancelBtn = $("journalEditCancel");
+  const dialog = $("journalEditDialog");
+
+  if (saveBtn) saveBtn.addEventListener("click", handleEditSave);
+  if (cancelBtn && dialog instanceof HTMLDialogElement) {
+    cancelBtn.addEventListener("click", () => {
+      editingReport = null;
+      editingMode = "draft";
+      dialog.close();
+    });
   }
 }

@@ -4,6 +4,8 @@
  * @module filters
  */
 
+import { getImpactTimestampMs } from "./report-format.js";
+
 const STORAGE_KEY_PERIOD_FILTER = "uav_period_filter_v1";
 
 /**
@@ -141,55 +143,14 @@ export function normalizeDateToISO(dateStr) {
 }
 
 /**
- * Extracts date and impact time from report text.
- * Витягує дату та час ураження/втрати з тексту звіту.
- * @param {string} text
- * @returns {{date?:string, impactTime?:string}}
- */
-function extractDateAndImpact(text) {
-  const lines = String(text || "").split("\n");
-  const out = {};
-
-  if (lines[1]) out.date = lines[1].trim();
-
-  for (const line of lines.slice(2)) {
-    const idx = line.indexOf(":");
-    if (idx === -1) continue;
-
-    const key = line.slice(0, idx).trim();
-    const value = line.slice(idx + 1).trim();
-
-    if (key === "Час ураження/втрати") {
-      out.impactTime = value;
-    }
-  }
-
-  return out;
-}
-
-/**
- * Returns mission impact timestamp (ms) for a saved report, using report text
- * date + "Час ураження/втрати" or falling back to stored ts.
- * Повертає мітку часу (мс) завершення місії для звіту.
- * @param {{ts:string,text:string}} report
+ * Returns mission impact timestamp (ms) from structured fields only.
+ * @param {{ fields?: import("./report-format.js").ReportFields, createdAt?: string }} report
  * @returns {number|null}
  */
 export function getImpactTimestampForReport(report) {
-  if (!report) return null;
-
-  const parsed = extractDateAndImpact(report.text || "");
-  const iso = normalizeDateToISO(parsed.date || "");
-  const time = String(parsed.impactTime || "").trim();
-
-  if (iso && time) {
-    const dt = combineDateTime(iso, time);
-    if (dt) {
-      const ms = dt.getTime();
-      if (!Number.isNaN(ms)) return ms;
-    }
-  }
-
-  const fb = Date.parse(report.ts);
-  if (Number.isNaN(fb)) return null;
-  return fb;
+  if (!report?.fields) return null;
+  const ms = getImpactTimestampMs(report.fields);
+  if (ms != null) return ms;
+  const fb = Date.parse(report.createdAt || "");
+  return Number.isNaN(fb) ? null : fb;
 }
