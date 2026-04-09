@@ -3,6 +3,15 @@
  * Uses Web Crypto API with PBKDF2 + AES-GCM.
  * Works fully offline in modern browsers.
  * @module crypto/crypto
+ *
+ * Container shape (migration-friendly; already what encryptJSON writes):
+ *   version, kdf, hash, iterations, salt, algo, iv, data — binary fields base64.
+ * Pipeline: Passphrase → PBKDF2 (salt + iterations + hash) → AES-GCM key → ciphertext in `data`.
+ *
+ * Future (do not break v1 consumers): optional new `version`, higher iterations (e.g. 300000),
+ * or different KDF params — implement import branches / migrations while keeping decrypt
+ * for older files. Constants below define the current on-disk v1 format; bump CRYPTO_VERSION
+ * only when adding a new branch, not silently.
  */
 
 const CRYPTO_VERSION = 1;
